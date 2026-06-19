@@ -3,17 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>飯糰小幫手 ｜ 行動財務後台</title>
+    <title>飯糰小幫手 ｜ 財務管理後台</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
-<body class="bg-[#0A1128] text-white font-sans antialiased pb-12 selection:bg-white/20">
-
-    <header class="bg-[#000411]/60 backdrop-blur-md text-white/90 text-center py-4.5 font-medium text-sm tracking-widest uppercase border-b border-white/5 sticky top-0 z-50 flex items-center justify-center gap-2">
-        <span id="user-avatar" class="w-5 h-5 rounded-full bg-white/10 hidden bg-cover bg-center"></span>
-        <span id="nav-title">RICE COOKER TECH ｜ 雲端帳本</span>
-    </header>
+<body class="bg-[#0A1128] text-white font-sans antialiased selection:bg-white/20 flex min-h-screen">
 
     <div id="login-gateway" class="fixed inset-0 bg-[#0A1128] z-50 flex flex-col items-center justify-center px-6 transition-opacity duration-300">
         <div class="text-center space-y-4">
@@ -22,127 +17,195 @@
         </div>
     </div>
 
-    <main class="max-w-md mx-auto px-6 mt-6 space-y-6">
+    <aside class="w-64 bg-[#000411]/80 border-r border-white/5 flex flex-col fixed inset-y-0 left-0 z-40">
+        <div class="p-6 border-b border-white/5 flex items-center gap-3">
+            <span id="user-avatar" class="w-7 h-7 rounded-full bg-white/10 bg-cover bg-center"></span>
+            <div class="flex flex-col">
+                <span id="user-name" class="text-xs font-bold tracking-wider">載入中...</span>
+                <span class="text-[9px] text-white/30 tracking-widest uppercase">Rice Cooker Tech</span>
+            </div>
+        </div>
+        
+        <nav class="flex-1 p-4 space-y-1">
+            <button onclick="switchPage('home')" id="btn-nav-home" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium tracking-wide transition bg-white/10 text-white">
+                <span>📊</span> 當月總覽簡報
+            </button>
+            <button onclick="switchPage('manage')" id="btn-nav-manage" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium tracking-wide transition text-white/50 hover:text-white hover:bg-white/5">
+                <span>📑</span> 進階明細管理
+            </button>
+        </nav>
 
-        <section class="bg-[#1C2541] rounded-2xl p-6 text-white shadow-xl relative overflow-hidden border border-white/5">
-            <h2 class="text-[11px] text-white/50 font-medium tracking-widest uppercase">本月結餘總覽</h2>
-            <div id="net-balance" class="text-3xl font-bold mt-1 tracking-tight font-mono">$0</div>
-            
-            <div class="grid grid-cols-2 gap-4 mt-6 pt-5 border-t border-white/10">
+        <div class="p-4 border-t border-white/5 text-[10px] text-white/20 tracking-widest text-center uppercase">
+            v2.1 Pro 完全體
+        </div>
+    </aside>
+
+    <div class="flex-1 pl-64 min-h-screen flex flex-col">
+        
+        <main id="page-home" class="max-w-2xl w-full mx-auto px-8 py-8 space-y-6">
+            <section class="bg-[#1C2541] rounded-2xl p-6 shadow-xl border border-white/5 relative overflow-hidden">
+                <h2 class="text-[11px] text-white/50 font-medium tracking-widest uppercase">本月收支結餘 (唯讀)</h2>
+                <div id="home-net-balance" class="text-3xl font-bold mt-1 tracking-tight font-mono">$0</div>
+                <div class="grid grid-cols-2 gap-4 mt-6 pt-5 border-t border-white/10">
+                    <div>
+                        <span class="text-[10px] text-white/40 block tracking-wider uppercase">Income 總收入</span>
+                        <span id="home-total-income" class="text-base font-bold text-white font-mono">+$0</span>
+                    </div>
+                    <div class="border-l border-white/10 pl-4">
+                        <span class="text-[10px] text-white/40 block tracking-wider uppercase">Expense 總支出</span>
+                        <span id="home-total-expense" class="text-base font-medium text-white/70 font-mono">-$0</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="bg-[#1C2541] rounded-2xl p-6 shadow-xl border border-white/5">
+                <h3 class="text-[11px] font-bold text-white/50 tracking-widest uppercase mb-4 flex items-center gap-2">支出分類比例</h3>
+                <div class="w-full max-w-[220px] mx-auto"><canvas id="homeExpenseChart"></canvas></div>
+            </section>
+
+            <section class="bg-[#1C2541] rounded-2xl p-6 shadow-xl border border-white/5">
+                <h3 class="text-[11px] font-bold text-white/50 tracking-widest uppercase mb-4">📑 當月即時流水帳 (唯讀)</h3>
+                <div id="home-history-list" class="space-y-4 divide-y divide-white/5"></div>
+            </section>
+        </main>
+
+        <main id="page-manage" class="max-w-3xl w-full mx-auto px-8 py-8 space-y-6 hidden">
+            <section class="bg-[#1C2541] rounded-2xl p-5 shadow-xl border border-white/5 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                 <div>
-                    <span class="text-[10px] text-white/40 block tracking-wider uppercase">Income 總收入</span>
-                    <span id="total-income" class="text-base font-bold text-white font-mono">+$0</span>
+                    <label class="text-[10px] text-white/40 block tracking-wider uppercase mb-1.5">起始日期</label>
+                    <input type="date" id="filter-start" class="w-full bg-[#0A1128] border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-white/30">
                 </div>
-                <div class="border-l border-white/10 pl-4">
-                    <span class="text-[10px] text-white/40 block tracking-wider uppercase">Expense 總支出</span>
-                    <span id="total-expense" class="text-base font-medium text-white/70 font-mono">-$0</span>
+                <div>
+                    <label class="text-[10px] text-white/40 block tracking-wider uppercase mb-1.5">結束日期</label>
+                    <input type="date" id="filter-end" class="w-full bg-[#0A1128] border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-white/30">
                 </div>
-            </div>
-        </section>
+                <div>
+                    <label class="text-[10px] text-white/40 block tracking-wider uppercase mb-1.5">收支類型</label>
+                    <select id="filter-type" class="w-full bg-[#0A1128] border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-white/30">
+                        <option value="all">全部類型</option>
+                        <option value="expense">支出 (Expense)</option>
+                        <option value="income">收入 (Income)</option>
+                    </select>
+                </div>
+                <button onclick="queryManagedData()" class="w-full bg-white text-[#0A1128] font-bold text-sm tracking-widest py-2.5 rounded-xl hover:bg-white/90 transition shadow-md cursor-pointer">
+                    🔍 篩選查詢
+                </button>
+            </section>
 
-        <section class="bg-[#1C2541] rounded-2xl p-6 shadow-xl border border-white/5">
-            <h3 class="text-[11px] font-bold text-white/50 tracking-widest uppercase mb-4 flex items-center gap-2">
-                <span class="w-1 h-1 rounded-full bg-white"></span>
-                支出分類比例
-            </h3>
-            <div class="w-full max-w-[240px] mx-auto my-2">
-                <canvas id="expenseChart"></canvas>
-            </div>
-        </section>
-
-        <section class="bg-[#1C2541] rounded-2xl p-6 shadow-xl border border-white/5">
-            <h3 class="text-[11px] font-bold text-white/50 tracking-widest uppercase mb-2">📑 本月收支明細</h3>
-            <div id="loading-text" class="text-center py-8 text-white/30 text-xs tracking-wider">雲端數據同步中...</div>
-            <div id="history-list" class="space-y-4 divide-y divide-white/5"></div>
-        </section>
-
-    </main>
+            <section class="bg-[#1C2541] rounded-2xl p-6 shadow-xl border border-white/5">
+                <h3 class="text-[11px] font-bold text-white/50 tracking-widest uppercase mb-4">🛠️ 帳目進階維護控制台 (可刪增改)</h3>
+                <div id="manage-loading-text" class="text-center py-8 text-white/30 text-xs tracking-wider hidden">正在檢索資料庫...</div>
+                <div id="manage-history-list" class="space-y-4 divide-y divide-white/5"></div>
+            </section>
+        </main>
+        
+    </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, query, where, orderBy, getDocs, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, query, where, orderBy, getDocs, doc, updateDoc, deleteDoc, Timestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // 🚀 1. 填入你的網頁端 Firebase Config
-        const firebaseConfig = {
-          apiKey: "AIzaSyCqTPnsxv_hOJkR0BnsKjQWgLvlQ3GR9E0",
-          authDomain: "ricemoney-db.firebaseapp.com",
-          projectId: "ricemoney-db",
-          storageBucket: "ricemoney-db.firebasestorage.app",
-          messagingSenderId: "114147437445",
-          appId: "1:114147437445:web:3b6dde2873baf6fb3232ec",
-          measurementId: "G-55SFYJSG6D"
-        };
+        // 🔥 1. 填入你的網頁端 Firebase Config
+           const firebaseConfig = {
+              apiKey: "AIzaSyCqTPnsxv_hOJkR0BnsKjQWgLvlQ3GR9E0",
+              authDomain: "ricemoney-db.firebaseapp.com",
+              projectId: "ricemoney-db",
+              storageBucket: "ricemoney-db.firebasestorage.app",
+              messagingSenderId: "114147437445",
+              appId: "1:114147437445:web:3b6dde2873baf6fb3232ec",
+              measurementId: "G-55SFYJSG6D"
+            };
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // 🚀 2. 填入你的 LINE LIFF ID
+        // 🔥 2. 填入你的 LINE LIFF ID
         const MY_LIFF_ID = "2010446205-W1G1WDQQ"; 
 
-        let myChart = null;
+        let homeChart = null;
         let globalUserId = null;
 
-        // 初始化安全通道
+        // 初始化安全登入通道
         async function initLIFF() {
             try {
                 await liff.init({ liffId: MY_LIFF_ID });
-                if (!liff.isLoggedIn()) {
-                    liff.login();
-                    return;
-                }
+                if (!liff.isLoggedIn()) { liff.login(); return; }
+                
                 const profile = await liff.getProfile();
                 globalUserId = profile.userId; 
 
-                document.getElementById("nav-title").innerText = `${profile.displayName} ｜ 雲端帳本`;
+                document.getElementById("user-name").innerText = profile.displayName;
                 if (profile.pictureUrl) {
-                    const avatar = document.getElementById("user-avatar");
-                    avatar.style.backgroundImage = `url('${profile.pictureUrl}')`;
-                    avatar.classList.remove("hidden");
+                    document.getElementById("user-avatar").style.backgroundImage = `url('${profile.pictureUrl}')`;
                 }
 
+                // 初始化篩選區間的預設日期 (當月1號到今天)
+                const now = new Date();
+                document.getElementById("filter-start").value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+                document.getElementById("filter-end").value = now.toISOString().split('T')[0];
+
+                // 解鎖畫面
                 const gateway = document.getElementById("login-gateway");
                 gateway.classList.add("opacity-0");
                 setTimeout(() => gateway.remove(), 300);
 
-                loadDashboardData(globalUserId);
+                // 預設加載首頁數據
+                loadHomeDashboard();
             } catch (error) {
-                console.error("LIFF 初始化失敗:", error);
-                document.getElementById("gateway-status").innerText = "❌ LINE 安全對接失敗，請在 LINE 內打開此網頁。";
+                console.error("LIFF 卡死:", error);
+                document.getElementById("gateway-status").innerText = "❌ LINE 安全對接失敗，請在 LINE 內打開。";
             }
         }
 
-        // 讀取資料與渲染
-        async function loadDashboardData(userId) {
+        // 🔀 分頁切換器 UI 邏輯
+        window.switchPage = function(pageTarget) {
+            const homePage = document.getElementById("page-home");
+            const managePage = document.getElementById("page-manage");
+            const btnHome = document.getElementById("btn-nav-home");
+            const btnManage = document.getElementById("btn-nav-manage");
+
+            if (pageTarget === 'home') {
+                homePage.classList.remove("hidden");
+                managePage.classList.add("hidden");
+                btnHome.className = "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium tracking-wide transition bg-white/10 text-white";
+                btnManage.className = "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium tracking-wide transition text-white/50 hover:text-white hover:bg-white/5";
+                loadHomeDashboard();
+            } else {
+                homePage.classList.add("hidden");
+                managePage.classList.remove("hidden");
+                btnHome.className = "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium tracking-wide transition text-white/50 hover:text-white hover:bg-white/5";
+                btnManage.className = "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium tracking-wide transition bg-white/10 text-white";
+                queryManagedData();
+            }
+        }
+
+        // 🏠 渲染分頁一：當月唯讀總覽
+        async function loadHomeDashboard() {
             try {
                 const now = new Date();
                 const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-                const expensesRef = collection(db, "users", userId, "expenses");
+                const expensesRef = collection(db, "users", globalUserId, "expenses");
                 const q = query(expensesRef, where("timestamp", ">=", startOfMonth), orderBy("timestamp", "desc"));
                 const querySnapshot = await getDocs(q);
 
-                let incomeTotal = 0;
-                let expenseTotal = 0;
+                let incomeTotal = 0, expenseTotal = 0;
                 let categoryData = {};
                 let listHtml = "";
 
-                document.getElementById("loading-text").classList.add("hidden");
-
                 if (querySnapshot.empty) {
-                    document.getElementById("history-list").innerHTML = `<div class="text-center py-8 text-white/30 text-xs tracking-wider">本月帳本尚無任何數據。</div>`;
-                    renderChart({});
-                    updateTotals(0, 0, 0);
+                    document.getElementById("home-history-list").innerHTML = `<div class="text-center py-6 text-white/20 text-xs">本月尚無任何記帳數據。</div>`;
+                    renderHomeChart({});
+                    updateHomeTotals(0, 0, 0);
                     return;
                 }
 
                 querySnapshot.forEach((res) => {
-                    const id = res.id; // 🎯 拿到 Firestore 的每筆文件 ID
-                    const data = res.data(); 
+                    const data = res.data();
                     const amt = data.amount || 0;
                     const type = data.type || "expense";
                     const item = data.item || "未命名";
                     const cat = data.category || "生活雜費";
-                    
                     const dateObj = data.timestamp ? data.timestamp.toDate() : new Date();
                     const dateStr = `${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
 
@@ -150,24 +213,90 @@
                     if (isIncome) incomeTotal += amt;
                     else { expenseTotal += amt; categoryData[cat] = (categoryData[cat] || 0) + amt; }
 
-                    // 🛠️ 在明細右側植入「修正」與「刪除」按鈕，並綁定 documentId (id)
                     listHtml += `
-                        <div class="flex justify-between items-center pt-4 text-sm first:pt-0 group">
+                        <div class="flex justify-between items-center pt-4 text-sm first:pt-0">
                             <div class="flex items-center gap-3">
-                                <div class="w-7 h-7 rounded-full ${isIncome ? 'bg-white text-[#0A1128] font-bold' : 'bg-white/10 text-white/80 border border-white/5'} text-[11px] flex items-center justify-center">
-                                    ${isIncome ? '入' : '支'}
-                                </div>
+                                <div class="w-7 h-7 rounded-full ${isIncome ? 'bg-white text-[#0A1128] font-bold' : 'bg-white/10 text-white/80 border border-white/5'} text-[11px] flex items-center justify-center">${isIncome ? '入' : '支'}</div>
                                 <div class="flex flex-col">
-                                    <span class="font-medium ${isIncome ? 'text-white' : 'text-white/90'} tracking-wide">${item}</span>
+                                    <span class="font-medium text-white/90 tracking-wide">${item}</span>
                                     <span class="text-[10px] text-white/40 mt-0.5">${cat}</span>
                                 </div>
                             </div>
-                            <div class="flex items-center gap-4">
-                                <div class="text-right">
-                                    <span class="font-bold font-mono ${isIncome ? 'text-white' : 'text-white/60'}">${isIncome ? '+' : '-'} $${amt.toLocaleString()}</span>
-                                    <span class="text-white/30 block text-[9px] mt-0.5">${dateStr}</span>
+                            <div class="text-right">
+                                <span class="font-bold font-mono ${isIncome ? 'text-white' : 'text-white/60'}">${isIncome ? '+' : '-'} $${amt.toLocaleString()}</span>
+                                <span class="text-white/30 block text-[9px] mt-0.5">${dateStr}</span>
+                            </div>
+                        </div>`;
+                });
+
+                updateHomeTotals(incomeTotal, expenseTotal, incomeTotal - expenseTotal);
+                document.getElementById("home-history-list").innerHTML = listHtml;
+                renderHomeChart(categoryData);
+            } catch (e) { console.error(e); }
+        }
+
+        function updateHomeTotals(inc, exp, net) {
+            document.getElementById("home-total-income").innerText = `+$${inc.toLocaleString()}`;
+            document.getElementById("home-total-expense").innerText = `-$${exp.toLocaleString()}`;
+            document.getElementById("home-net-balance").innerText = `${net >= 0 ? '' : '-'}$$${Math.abs(net).toLocaleString()}`;
+        }
+
+        // ⚙️ 渲染分頁二：進階自訂篩選管理 (具備編輯/刪除按鈕)
+        window.queryManagedData = async function() {
+            const startVal = document.getElementById("filter-start").value;
+            const endVal = document.getElementById("filter-end").value;
+            const typeVal = document.getElementById("filter-type").value;
+
+            if (!startVal || !endVal) { alert("請選擇完整的查詢區間！"); return; }
+
+            const loadingTxt = document.getElementById("manage-loading-text");
+            const manageList = document.getElementById("manage-history-list");
+            
+            loadingTxt.classList.remove("hidden");
+            manageList.innerHTML = "";
+
+            try {
+                const startDate = new Date(startVal + "T00:00:00");
+                const endDate = new Date(endVal + "T23:59:59");
+
+                const expensesRef = collection(db, "users", globalUserId, "expenses");
+                let q = query(expensesRef, where("timestamp", ">=", startDate), where("timestamp", "<=", endDate), orderBy("timestamp", "desc"));
+                const querySnapshot = await getDocs(q);
+
+                loadingTxt.classList.add("hidden");
+                let listHtml = "";
+
+                if (querySnapshot.empty) {
+                    manageList.innerHTML = `<div class="text-center py-12 text-white/20 text-xs tracking-wider">該指定區間內查無任何收支紀錄。</div>`;
+                    return;
+                }
+
+                querySnapshot.forEach((res) => {
+                    const id = res.id;
+                    const data = res.data();
+                    const amt = data.amount || 0;
+                    const type = data.type || "expense";
+                    const item = data.item || "未命名";
+                    const cat = data.category || "生活雜費";
+                    const dateObj = data.timestamp ? data.timestamp.toDate() : new Date();
+                    const dateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+
+                    // 如果有篩選特定型態
+                    if (typeVal !== "all" && type !== typeVal) return;
+
+                    const isIncome = type === "income";
+                    listHtml += `
+                        <div class="flex justify-between items-center pt-4 text-sm first:pt-0">
+                            <div class="flex items-center gap-3">
+                                <div class="w-7 h-7 rounded-full ${isIncome ? 'bg-white text-[#0A1128] font-bold' : 'bg-white/10 text-white/80 border border-white/5'} text-[11px] flex items-center justify-center">${isIncome ? '入' : '支'}</div>
+                                <div class="flex flex-col">
+                                    <span class="font-medium text-white/90 tracking-wide">${item} <span class="text-[9px] bg-white/5 text-white/30 px-1.5 py-0.5 rounded ml-1">${cat}</span></span>
+                                    <span class="text-[10px] text-white/30 mt-0.5 font-mono">${dateStr}</span>
                                 </div>
-                                <div class="flex items-center gap-1.5 pl-2 border-l border-white/5">
+                            </div>
+                            <div class="flex items-center gap-4">
+                                <span class="font-bold font-mono text-sm ${isIncome ? 'text-white' : 'text-white/60'}">${isIncome ? '+' : '-'} $${amt.toLocaleString()}</span>
+                                <div class="flex items-center gap-1 pl-2 border-l border-white/5">
                                     <button onclick="editRecord('${id}', '${item}', ${amt})" class="w-8 h-8 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition flex items-center justify-center text-xs">✎</button>
                                     <button onclick="deleteRecord('${id}', '${item}')" class="w-8 h-8 rounded-lg text-rose-400/40 hover:text-rose-400 hover:bg-rose-500/10 transition flex items-center justify-center text-xs">🗑️</button>
                                 </div>
@@ -175,93 +304,67 @@
                         </div>`;
                 });
 
-                updateTotals(incomeTotal, expenseTotal, incomeTotal - expenseTotal);
-                document.getElementById("history-list").innerHTML = listHtml;
-                renderChart(categoryData);
-
-            } catch (error) {
-                console.error("讀取資料失敗:", error);
-                document.getElementById("loading-text").innerText = "❌ 資料載入異常。";
+                manageList.innerHTML = listHtml ? listHtml : `<div class="text-center py-12 text-white/20 text-xs">該類別篩選無符合項目。</div>`;
+            } catch (e) {
+                console.error(e);
+                loadingTxt.classList.add("hidden");
+                manageList.innerHTML = `<div class="text-center py-6 text-rose-400/50 text-xs">檢索失敗，請確保 Firestore 的複合索引 (Composite Index) 已發佈。</div>`;
             }
         }
 
-        function updateTotals(income, expense, net) {
-            document.getElementById("total-income").innerText = `+$${income.toLocaleString()}`;
-            document.getElementById("total-expense").innerText = `-$${expense.toLocaleString()}`;
-            document.getElementById("net-balance").innerText = `${net >= 0 ? '' : '-'}$$${Math.abs(net).toLocaleString()}`;
-        }
-
-        // 🚀 【修正邏輯】彈出原生 Prompt 進行資料修改
+        // 🛠️ 編輯處理
         window.editRecord = async function(docId, currentItem, currentAmount) {
             const newItem = prompt("請輸入修正後的【項目名稱】:", currentItem);
-            if (newItem === null) return; // 取消
-            
+            if (newItem === null) return;
             const newAmountStr = prompt("請輸入修正後的【金額】:", currentAmount);
-            if (newAmountStr === null) return; // 取消
-            
+            if (newAmountStr === null) return;
             const newAmount = parseInt(newAmountStr, 10);
-            if (isNaN(newAmount) || newAmount <= 0) {
-                alert("❌ 請輸入有效的正整數金額！");
-                return;
-            }
+            if (isNaN(newAmount) || newAmount <= 0) { alert("請輸入有效的金額！"); return; }
 
-            if (confirm(`確定要將其修正為：\n📦 項目：${newItem}\n💰 金額：$${newAmount} 嗎？`)) {
+            if (confirm(`確定要將資料修正嗎？`)) {
                 try {
                     const docRef = doc(db, "users", globalUserId, "expenses", docId);
-                    await updateDoc(docRef, {
-                        item: newItem.strip ? newItem.strip() : newItem,
-                        amount: newAmount
-                    });
-                    // 重新載入，完美刷新
-                    loadDashboardData(globalUserId);
-                } catch (e) {
-                    alert("❌ 修正失敗，請檢查網路或權限。");
-                }
+                    await updateDoc(docRef, { item: newItem.trim(), amount: newAmount });
+                    queryManagedData(); // 刷新管理分頁
+                } catch (e) { alert("修改失敗"); }
             }
         }
 
-        // 🚀 【刪除邏輯】一鍵剔除錯誤資料
+        // 🗑️ 刪除處理
         window.deleteRecord = async function(docId, itemTitle) {
-            if (confirm(`⚠️ 確定要刪除「${itemTitle}」這筆紀錄嗎？\n刪除後將無法復原。`)) {
+            if (confirm(`⚠️ 確定要徹底刪除「${itemTitle}」嗎？`)) {
                 try {
                     const docRef = doc(db, "users", globalUserId, "expenses", docId);
                     await deleteDoc(docRef);
-                    // 重新載入，完美刷新
-                    loadDashboardData(globalUserId);
-                } catch (e) {
-                    alert("❌ 刪除失敗。");
-                }
+                    queryManagedData(); // 刷新管理分頁
+                } catch (e) { alert("刪除失敗"); }
             }
         }
 
-        function renderChart(categoryData) {
-            const canvasElement = document.getElementById('expenseChart');
+        // 圓餅圖渲染
+        function renderHomeChart(categoryData) {
+            const canvasElement = document.getElementById('homeExpenseChart');
             if (!canvasElement) return;
             const ctx = canvasElement.getContext('2d'); 
             const labels = Object.keys(categoryData);
             const dataValues = Object.values(categoryData);
 
-            if (myChart) { myChart.destroy(); myChart = null; }
+            if (homeChart) { homeChart.destroy(); homeChart = null; }
+            if (labels.length === 0) { ctx.clearRect(0, 0, canvasElement.width, canvasElement.height); return; }
 
-            if (labels.length === 0) {
-                ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-                return;
-            }
-
-            myChart = new Chart(ctx, {
+            homeChart = new Chart(ctx, {
                 type: 'doughnut',
                 data: {
                     labels: labels,
                     datasets: [{
                         data: dataValues,
                         backgroundColor: ['#FFFFFF', '#E2E8F0', '#94A3B8', '#475569', '#334155', '#1E293B'],
-                        borderWidth: 2,
-                        borderColor: '#1C2541'
+                        borderWidth: 2, borderColor: '#1C2541'
                     }]
                 },
                 options: {
                     responsive: true,
-                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, padding: 12, font: { size: 10 }, color: 'rgba(255, 255, 255, 0.5)' } } },
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, padding: 10, font: { size: 10 }, color: 'rgba(255, 255, 255, 0.4)' } } },
                     cutout: '75%'
                 }
             });
