@@ -124,17 +124,42 @@
 
         let homeChart = null;
         let globalUserId = null;
+        
+        // 🚀 群組分流核心變數
+        let urlGroupId = null;
+        let isGroupMode = false;
+        let currentTargetId = null; // 用來存目前到底要撈哪個 document 節點
 
         // 初始化安全通道
         async function initLIFF() {
             try {
+                // 🕵️ 1. 優先解析網址列有沒有帶 ?groupId=xxxx
+                const urlParams = new URLSearchParams(window.location.search);
+                urlGroupId = urlParams.get('groupId');
+                
+                if (urlGroupId) {
+                    isGroupMode = true;
+                    currentTargetId = urlGroupId;
+                    document.getElementById("mode-badge").innerText = "👥 群組公帳";
+                    document.getElementById("mode-badge").className = "text-[9px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full font-medium tracking-wider";
+                    document.getElementById("balance-title").innerText = "本月群組總結餘 (唯讀)";
+                    document.getElementById("history-title").innerText = "📑 本月群組即時流水帳 (唯讀)";
+                }
+
                 await liff.init({ liffId: MY_LIFF_ID });
                 if (!liff.isLoggedIn()) { liff.login(); return; }
                 
                 const profile = await liff.getProfile();
                 globalUserId = profile.userId; 
 
-                document.getElementById("user-name").innerText = profile.displayName;
+                // 如果是個人模式，主鍵就是自己的真實 LINE UID
+                if (!isGroupMode) {
+                    currentTargetId = globalUserId;
+                    document.getElementById("user-name").innerText = profile.displayName;
+                } else {
+                    document.getElementById("user-name").innerText = `${profile.displayName} (群組成員)`;
+                }
+
                 if (profile.pictureUrl) {
                     document.getElementById("user-avatar").style.backgroundImage = `url('${profile.pictureUrl}')`;
                 }
@@ -150,11 +175,11 @@
                 loadHomeDashboard();
             } catch (error) {
                 console.error("LIFF 卡死:", error);
-                document.getElementById("gateway-status").innerText = "❌ LINE 對接失敗，請在 LINE 內打開。";
+                document.getElementById("gateway-status").innerText = "❌ LINE 安全對接失敗，請在 LINE 內打開。";
             }
         }
 
-        // 🔀 底部切換分頁邏輯
+        // 🔀 底部切換分頁
         window.switchPage = function(pageTarget) {
             const homePage = document.getElementById("page-home");
             const managePage = document.getElementById("page-manage");
@@ -176,13 +201,16 @@
             }
         }
 
-        // 🏠 渲染分頁一
+        // 🏠 渲染分頁一 (自動相容個人 / 群組路徑)
         async function loadHomeDashboard() {
             try {
                 const now = new Date();
                 const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-                const expensesRef = collection(db, "users", globalUserId, "expenses");
+                // 🎯 核心分流路徑選擇器
+                const rootCollection = isGroupMode ? "groups" : "users";
+                const expensesRef = collection(db, rootCollection, currentTargetId, "expenses");
+                
                 const q = query(expensesRef, where("timestamp", ">=", startOfMonth), orderBy("timestamp", "desc"));
                 const querySnapshot = await getDocs(q);
 
@@ -191,7 +219,7 @@
                 let listHtml = "";
 
                 if (querySnapshot.empty) {
-                    document.getElementById("home-history-list").innerHTML = `<div class="text-center py-6 text-white/20 text-xs">本月尚無任何數據。</div>`;
+                    document.getElementById("home-history-list").innerHTML = `<div class="text-center py-6 text-white/20 text-xs">本月帳本尚無數據。</div>`;
                     renderHomeChart({});
                     updateHomeTotals(0, 0, 0);
                     return;
@@ -203,6 +231,10 @@
                     const type = data.type || "expense";
                     const item = data.item || "未命名";
                     const cat = data.category || "生活雜費";
+                    
+                    // 👥 群組公帳特有：把記帳者名字印出來
+                    const creatorName = data.created_by_name ? `by ${data.created_by_name}` : '';
+                    
                     const dateObj = data.timestamp ? data.timestamp.toDate() : new Date();
                     const dateStr = `${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
 
@@ -215,7 +247,7 @@
                             <div class="flex items-center gap-3">
                                 <div class="w-7 h-7 rounded-full ${isIncome ? 'bg-white text-[#0A1128] font-bold' : 'bg-white/10 text-white/80 border border-white/5'} text-[11px] flex items-center justify-center">${isIncome ? '入' : '支'}</div>
                                 <div class="flex flex-col">
-                                    <span class="font-medium text-white/90 tracking-wide">${item}</span>
+                                    <span class="font-medium text-white/90 tracking-wide">${item} <span class="text-[9px] text-white/30 font-normal">${creatorName}</span></span>
                                     <span class="text-[10px] text-white/40 mt-0.5">${cat}</span>
                                 </div>
                             </div>
@@ -238,7 +270,7 @@
             document.getElementById("home-net-balance").innerText = `${net >= 0 ? '' : '-'}$$${Math.abs(net).toLocaleString()}`;
         }
 
-        // ⚙️ 渲染分頁二
+        // ⚙️ 渲染分頁二 (自動相容個人 / 群組歷史區間檢索與增刪改)
         window.queryManagedData = async function() {
             const startVal = document.getElementById("filter-start").value;
             const endVal = document.getElementById("filter-end").value;
@@ -254,7 +286,9 @@
                 const startDate = new Date(startVal + "T00:00:00");
                 const endDate = new Date(endVal + "T23:59:59");
 
-                const expensesRef = collection(db, "users", globalUserId, "expenses");
+                const rootCollection = isGroupMode ? "groups" : "users";
+                const expensesRef = collection(db, rootCollection, currentTargetId, "expenses");
+                
                 let q = query(expensesRef, where("timestamp", ">=", startDate), where("timestamp", "<=", endDate), orderBy("timestamp", "desc"));
                 const querySnapshot = await getDocs(q);
 
@@ -262,7 +296,7 @@
                 let listHtml = "";
 
                 if (querySnapshot.empty) {
-                    manageList.innerHTML = `<div class="text-center py-12 text-white/20 text-xs">該指定區間內查無紀錄。</div>`;
+                    manageList.innerHTML = `<div class="text-center py-12 text-white/20 text-xs tracking-wider">查無任何收支紀錄。</div>`;
                     return;
                 }
 
@@ -273,6 +307,7 @@
                     const type = data.type || "expense";
                     const item = data.item || "未命名";
                     const cat = data.category || "生活雜費";
+                    const creatorName = data.created_by_name ? `[${data.created_by_name}]` : '';
                     const dateObj = data.timestamp ? data.timestamp.toDate() : new Date();
                     const dateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
 
@@ -284,8 +319,8 @@
                             <div class="flex items-center gap-3">
                                 <div class="w-7 h-7 rounded-full ${isIncome ? 'bg-white text-[#0A1128] font-bold' : 'bg-white/10 text-white/80 border border-white/5'} text-[11px] flex items-center justify-center">${isIncome ? '入' : '支'}</div>
                                 <div class="flex flex-col">
-                                    <span class="font-medium text-white/90 tracking-wide">${item} <span class="text-[9px] bg-white/5 text-white/30 px-1.5 py-0.5 rounded ml-1">${cat}</span></span>
-                                    <span class="text-[10px] text-white/30 mt-0.5 font-mono">${dateStr}</span>
+                                    <span class="font-medium text-white/90 tracking-wide">${item} <span class="text-[9px] text-white/30">${creatorName}</span></span>
+                                    <span class="text-[10px] text-white/30 mt-0.5 font-mono">${dateStr} ｜ ${cat}</span>
                                 </div>
                             </div>
                             <div class="flex items-center gap-3">
@@ -298,14 +333,14 @@
                         </div>`;
                 });
 
-                manageList.innerHTML = listHtml ? listHtml : `<div class="text-center py-12 text-white/20 text-xs">無符合條件項目。</div>`;
+                manageList.innerHTML = listHtml ? listHtml : `<div class="text-center py-12 text-white/20 text-xs">無符合項目。</div>`;
             } catch (e) {
                 loadingTxt.classList.add("hidden");
-                manageList.innerHTML = `<div class="text-center py-6 text-rose-400/50 text-xs">檢索失敗。</div>`;
+                manageList.innerHTML = `<div class="text-center py-6 text-rose-400/50 text-xs">檢索失敗，請至 Firebase 補上群組 expenses 複合索引。</div>`;
             }
         }
 
-        // 🛠️ 編輯與刪除
+        // 🛠️ 編輯與刪除 (路徑全面相容雙模式)
         window.editRecord = async function(docId, currentItem, currentAmount) {
             const newItem = prompt("請輸入修正後的項目名稱:", currentItem);
             if (!newItem) return;
@@ -315,16 +350,18 @@
             if (isNaN(newAmount) || newAmount <= 0) { alert("金額錯誤"); return; }
 
             try {
-                const docRef = doc(db, "users", globalUserId, "expenses", docId);
+                const rootCollection = isGroupMode ? "groups" : "users";
+                const docRef = doc(db, rootCollection, currentTargetId, "expenses", docId);
                 await updateDoc(docRef, { item: newItem.trim(), amount: newAmount });
                 queryManagedData();
             } catch (e) { alert("修改失敗"); }
         }
 
         window.deleteRecord = async function(docId, itemTitle) {
-            if (confirm(`⚠️ 確定要彻底刪除「${itemTitle}」嗎？`)) {
+            if (confirm(`⚠️ 確定要徹底刪除「${itemTitle}」嗎？`)) {
                 try {
-                    const docRef = doc(db, "users", globalUserId, "expenses", docId);
+                    const rootCollection = isGroupMode ? "groups" : "users";
+                    const docRef = doc(db, rootCollection, currentTargetId, "expenses", docId);
                     await deleteDoc(docRef);
                     queryManagedData();
                 } catch (e) { alert("刪除失敗"); }
