@@ -177,11 +177,14 @@
             }
         }
 
-        window.finalizeEntry = function() {
+       window.finalizeEntry = function() {
             const inputGroupVal = document.getElementById("input-group-id").value.trim();
             const navContainer = document.getElementById("nav-container");
             const btnNavOrders = document.getElementById("btn-nav-orders");
-
+        
+            // 取得目前瀏覽器的 URL
+            const url = new URL(window.location.href);
+        
             if (isGroupModeSelected) {
                 if (!inputGroupVal) { alert("請輸入群組 ID！"); return; }
                 finalTargetId = inputGroupVal;
@@ -193,7 +196,14 @@
                 navContainer.className = "max-w-md mx-auto grid grid-cols-3 h-16";
                 btnNavOrders.classList.remove("hidden");
                 document.getElementById("group-payer-card").classList.remove("hidden");
+                
+                // 確保網址列同步更新為群組識別碼
+                url.searchParams.set('groupId', finalTargetId);
+                url.searchParams.delete('userId');
+                window.history.replaceState({}, '', url.toString());
+        
             } else {
+                // 🎯 個人私帳模式：精準鎖定個人唯一辨識碼
                 finalTargetId = globalUserId;
                 document.getElementById("mode-badge").innerText = "👤 個人私帳模式";
                 document.getElementById("mode-badge").className = "text-[9px] bg-white/10 text-white/70 px-2 py-0.5 rounded-full font-medium tracking-wider";
@@ -203,6 +213,11 @@
                 navContainer.className = "max-w-md mx-auto grid grid-cols-2 h-16";
                 btnNavOrders.classList.add("hidden");
                 document.getElementById("group-payer-card").classList.add("hidden");
+                
+                // 🎯 核心修正：徹底洗掉殘留的 groupId，並將網址更新為個人識別碼 userId
+                url.searchParams.delete('groupId');
+                url.searchParams.set('userId', finalTargetId);
+                window.history.replaceState({}, '', url.toString());
             }
             
             if (globalProfile.pictureUrl) {
