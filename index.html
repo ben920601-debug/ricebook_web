@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>飯糰小幫手 ｜ 雲端財務後台</title>
+    <title>記帳米粒 ｜ 監控後台</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
@@ -16,16 +16,16 @@
 
     <div id="login-gateway" class="fixed inset-0 bg-[#0A1128] z-50 flex flex-col items-center justify-center px-6 transition-opacity duration-300">
         <div class="text-center space-y-4">
-            <h1 class="text-xl font-bold tracking-widest">✨ 飯糰小幫手安全驗證</h1>
-            <p id="gateway-status" class="text-xs text-white/40 tracking-wider">正在安全對接 LINE 安全通道...</p>
+            <h1 class="text-xl font-bold tracking-widest">✨ 電鍋小幫手安全驗證</h1>
+            <p id="gateway-status" class="text-xs text-white/40 tracking-wider">正在對接 LINE 通道...</p>
         </div>
     </div>
 
     <div id="confirm-gateway" class="fixed inset-0 bg-[#0A1128]/95 backdrop-blur-xl z-40 flex flex-col items-center justify-center px-6 hidden">
         <div class="w-full max-w-md bg-[#1C2541] rounded-2xl p-6 border border-white/10 space-y-5 shadow-2xl">
             <div class="text-center border-b border-white/5 pb-3">
-                <h2 class="text-base font-bold tracking-wider">🔐 進入帳本權內核對</h2>
-                <p class="text-[11px] text-white/40 mt-1">請確認目前登入身份與帳本類型</p>
+                <h2 class="text-base font-bold tracking-wider">🔐 登入</h2>
+                <p class="text-[11px] text-white/40 mt-1">請確認目前登入身份與類型</p>
             </div>
             
             <div class="space-y-2">
@@ -42,8 +42,8 @@
             <div class="space-y-2">
                 <label class="text-[10px] text-white/40 block tracking-wider uppercase">📊 目標帳本模式</label>
                 <div class="grid grid-cols-2 gap-2">
-                    <button onclick="setConfirmMode(false)" id="btn-mode-user" class="py-2.5 rounded-xl text-xs font-bold border border-white/10 transition cursor-pointer">👤 個人帳本</button>
-                    <button onclick="setConfirmMode(true)" id="btn-mode-group" class="py-2.5 rounded-xl text-xs font-bold border border-white/10 transition cursor-pointer">👥 群組公帳</button>
+                    <button onclick="setConfirmMode(false)" id="btn-mode-user" class="py-2.5 rounded-xl text-xs font-bold border border-white/10 transition cursor-pointer">👤 個人專區</button>
+                    <button onclick="setConfirmMode(true)" id="btn-mode-group" class="py-2.5 rounded-xl text-xs font-bold border border-white/10 transition cursor-pointer">👥 群組專區</button>
                 </div>
                 
                 <div id="group-input-box" class="space-y-1.5 pt-1 hidden">
@@ -53,7 +53,7 @@
             </div>
 
             <button onclick="finalizeEntry()" id="btn-submit-gateway" class="w-full bg-white text-[#0A1128] font-bold text-xs tracking-widest py-3.5 rounded-xl hover:bg-white/90 transition shadow-md cursor-pointer uppercase mt-2">
-                🚀 進入雲端帳本後台
+                🚀 進入雲端後台
             </button>
         </div>
     </div>
@@ -64,7 +64,7 @@
             <span id="user-name" class="text-xs font-bold tracking-wider">載入中...</span>
             <span id="mode-badge" class="text-[9px] bg-white/10 text-white/70 px-2 py-0.5 rounded-full font-medium tracking-wider">個人模式</span>
         </div>
-        <span class="text-[9px] text-white/30 tracking-widest uppercase font-semibold">Rice Cooker Tech</span>
+        <span class="text-[9px] text-white/30 tracking-widest uppercase font-semibold">RiceBookKeeping</span>
     </header>
 
     <div class="flex-1 w-full mx-auto">
@@ -76,11 +76,11 @@
                 <div id="home-totals-row" class="grid grid-cols-2 gap-4 mt-6 pt-5 border-t border-white/10">
                     <div>
                         <span class="text-[10px] text-white/40 block tracking-wider uppercase">Income 總收入</span>
-                        <span id="home-total-income" class="text-base font-bold text-white font-mono">+$0</span>
+                        <span id="home-total-income" class="text-base font-bold text-white font-mono">+0</span>
                     </div>
                     <div class="border-l border-white/10 pl-4">
                         <span class="text-[10px] text-white/40 block tracking-wider uppercase">Expense 總支出</span>
-                        <span id="home-total-expense" class="text-base font-medium text-white/70 font-mono">-$0</span>
+                        <span id="home-total-expense" class="text-base font-medium text-white/70 font-mono">-0</span>
                     </div>
                 </div>
             </section>
@@ -100,7 +100,7 @@
             </section>
 
             <section class="bg-[#1C2541] rounded-2xl p-6 shadow-xl border border-white/5">
-                <h3 id="history-title" class="text-[11px] font-bold text-white/50 tracking-widest uppercase mb-4">📑 當月即時流水帳</h3>
+                <h3 id="history-title" class="text-[11px] font-bold text-white/50 tracking-widest uppercase mb-4">📑 當月即時紀錄</h3>
                 <div id="home-loading-text" class="text-center py-4 text-white/30 text-xs hidden">正在加載明細...</div>
                 <div id="home-history-list" class="space-y-4 divide-y divide-white/5"></div>
             </section>
@@ -158,15 +158,15 @@
         <div id="nav-container" class="max-w-md mx-auto grid grid-cols-2 h-16">
             <button onclick="switchPage('home')" id="btn-nav-home" class="flex flex-col items-center justify-center gap-1 transition text-white">
                 <span class="text-base">📊</span>
-                <span class="text-[10px] font-medium tracking-wider">數據簡報</span>
+                <span class="text-[10px] font-medium tracking-wider">監控首頁</span>
             </button>
             <button onclick="switchPage('manage')" id="btn-nav-manage" class="flex flex-col items-center justify-center gap-1 transition text-white/40">
                 <span class="text-base">📑</span>
-                <span class="text-[10px] font-medium tracking-wider">進階維護</span>
+                <span class="text-[10px] font-medium tracking-wider">明細查詢</span>
             </button>
             <button onclick="switchPage('orders')" id="btn-nav-orders" class="flex flex-col items-center justify-center gap-1 transition text-white/40 hidden">
                 <span class="text-base">📋</span>
-                <span class="text-[10px] font-medium tracking-wider">訂單核銷</span>
+                <span class="text-[10px] font-medium tracking-wider">團單核銷</span>
             </button>
         </div>
     </footer>
@@ -283,10 +283,10 @@
                 if (!inputGroupVal) { alert("⚠️ 請確認或輸入群組 ID 代碼！"); return; }
                 finalTargetId = inputGroupVal;
                 
-                document.getElementById("mode-badge").innerText = "👥 群組公帳";
+                document.getElementById("mode-badge").innerText = "👥 群組模式";
                 document.getElementById("mode-badge").className = "text-[9px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full font-medium tracking-wider";
                 document.getElementById("balance-title").innerText = "本月群組總開銷金額";
-                document.getElementById("history-title").innerText = "📑 本月群組即時流水帳";
+                document.getElementById("history-title").innerText = "📑 本月群組即時明細";
                 document.getElementById("user-name").innerText = `${globalProfile.displayName || '群組成員'} (群組成員)`;
                 
                 // 群組模式：擴充導覽列為三標籤
@@ -302,7 +302,7 @@
                 document.getElementById("mode-badge").innerText = "👤 個人模式";
                 document.getElementById("mode-badge").className = "text-[9px] bg-white/10 text-white/70 px-2 py-0.5 rounded-full font-medium tracking-wider";
                 document.getElementById("balance-title").innerText = "本月收支結餘";
-                document.getElementById("history-title").innerText = "📑 當月即時流水帳";
+                document.getElementById("history-title").innerText = "📑 當月即時明細";
                 document.getElementById("user-name").innerText = globalProfile.displayName || "個人帳本主";
                 
                 navContainer.className = "max-w-md mx-auto grid grid-cols-2 h-16";
@@ -605,7 +605,7 @@
                                     <div>
                                         <span class="text-xs bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full font-bold">#${code}</span>
                                         <span class="text-xs text-white/40 ml-2">${date}</span>
-                                        <div class="text-xs font-bold mt-1 text-white/80">💳 墊款買單人：${o.master_payer_name || '群組成員'}</div>
+                                        <div class="text-xs font-bold mt-1 text-white/80">💳 墊款人：${o.master_payer_name || '群組成員'}</div>
                                     </div>
                                 <div class="text-right">
                                     <span class="text-sm font-black text-white">$${total.toLocaleString()}</span>
