@@ -85,15 +85,6 @@
                 </div>
             </section>
 
-            <section id="state-machine-section" class="bg-[#1C2541] rounded-2xl p-5 border border-white/5 shadow-xl space-y-3 hidden">
-                <div class="text-[10px] font-bold text-white/40 tracking-widest uppercase">⚙️ 群組機器人狀態控制機</div>
-                <div class="grid grid-cols-3 gap-2">
-                    <button onclick="updateGroupState('normal')" id="btn-state-normal" class="py-2.5 text-[11px] font-bold rounded-xl border border-white/5 bg-white/5 text-white/40 transition-all cursor-pointer">常態模式</button>
-                    <button onclick="updateGroupState('order')" id="btn-state-order" class="py-2.5 text-[11px] font-bold rounded-xl border border-white/5 bg-white/5 text-white/40 transition-all cursor-pointer">訂單模式</button>
-                    <button onclick="updateGroupState('settle')" id="btn-state-settle" class="py-2.5 text-[11px] font-bold rounded-xl border border-white/5 bg-white/5 text-white/40 transition-all cursor-pointer">結算模式</button>
-                </div>
-            </section>
-
             <section class="bg-[#1C2541] rounded-2xl p-6 shadow-xl border border-white/5">
                 <h3 class="text-[11px] font-bold text-white/50 tracking-widest uppercase mb-4">支出分類比例</h3>
                 <div class="w-full max-w-[200px] mx-auto"><canvas id="homeExpenseChart"></canvas></div>
@@ -283,11 +274,11 @@
                 if (!inputGroupVal) { alert("⚠️ 請確認或輸入群組 ID 代碼！"); return; }
                 finalTargetId = inputGroupVal;
                 
-                document.getElementById("mode-badge").innerText = "👥 群組模式";
+                document.getElementById("mode-badge").innerText = "👥 群組";
                 document.getElementById("mode-badge").className = "text-[9px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full font-medium tracking-wider";
                 document.getElementById("balance-title").innerText = "本月群組總開銷金額";
                 document.getElementById("history-title").innerText = "📑 本月群組即時明細";
-                document.getElementById("user-name").innerText = `${globalProfile.displayName || '群組成員'} (群組成員)`;
+                document.getElementById("user-name").innerText = `${globalProfile.displayName || '群組成員'} (成員)`;
                 
                 // 群組模式：擴充導覽列為三標籤
                 navContainer.className = "max-w-md mx-auto grid grid-cols-3 h-16";
@@ -299,7 +290,7 @@
                 window.history.replaceState({}, '', url.toString());
             } else {
                 finalTargetId = globalUserId;
-                document.getElementById("mode-badge").innerText = "👤 個人模式";
+                document.getElementById("mode-badge").innerText = "👤 個人";
                 document.getElementById("mode-badge").className = "text-[9px] bg-white/10 text-white/70 px-2 py-0.5 rounded-full font-medium tracking-wider";
                 document.getElementById("balance-title").innerText = "本月收支結餘";
                 document.getElementById("history-title").innerText = "📑 當月即時明細";
