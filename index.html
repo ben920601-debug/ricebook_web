@@ -113,10 +113,9 @@
             const listEl = document.getElementById("test-history-list");
             
             try {
-                // 自動判斷讀取個人 users 還是群組 groups
                 const isGroup = finalTargetId.startsWith("C") || finalTargetId.startsWith("c") || finalTargetId.includes("fallback") === false;
                 const rootCollection = isGroup ? "groups" : "users";
-                
+        
                 statusEl.innerText += ` ➡️ 正在檢索 [${rootCollection}/${finalTargetId}]`; // 動態疊加日誌
                 
                 const expRef = collection(db, rootCollection, finalTargetId, "expenses");
