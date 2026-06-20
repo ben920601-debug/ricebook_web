@@ -3,97 +3,114 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>飯糰小幫手 ｜ 雲端對帳管理系統</title>
-    <!-- Tailwind CSS v4 & Chart.js -->
+    <title>飯糰小幫手 ｜ 財務管理後台</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-    <style>
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-    </style>
 </head>
-<body class="bg-[#0A1128] text-white font-sans antialiased selection:bg-emerald-500/30 selection:text-emerald-400 no-scrollbar overflow-x-hidden min-h-screen">
+<body class="bg-[#0A1128] text-white font-sans antialiased pb-24 min-h-screen flex flex-col">
 
-    <div class="max-w-md mx-auto min-h-screen flex flex-col px-5 py-6 justify-between">
+    <div id="confirm-gateway" class="fixed inset-0 bg-[#0A1128] z-50 flex flex-col items-center justify-center px-6">
+        <div class="w-full max-w-md bg-[#1C2541] rounded-2xl p-6 border border-white/10 space-y-5 shadow-2xl">
+            <div class="text-center border-b border-white/5 pb-3">
+                <h2 class="text-base font-bold tracking-wider">🔐 進入账本權内核對</h2>
+            </div>
+            <div class="space-y-2">
+                <label class="text-[10px] text-white/40 block tracking-wider uppercase">👤 當前登入成員</label>
+                <div class="flex items-center gap-3 bg-[#0A1128] p-3 rounded-xl border border-white/5">
+                    <span id="confirm-avatar" class="w-8 h-8 rounded-full bg-white/10 bg-cover bg-center"></span>
+                    <span id="confirm-name" class="text-xs font-bold">載入中...</span>
+                </div>
+            </div>
+            <div class="space-y-2">
+                <label class="text-[10px] text-white/40 block tracking-wider uppercase">📊 目標帳本模式</label>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="setConfirmMode(false)" id="btn-mode-user" class="py-2.5 rounded-xl text-xs font-bold border border-white/10 transition cursor-pointer">👤 個人帳本</button>
+                    <button onclick="setConfirmMode(true)" id="btn-mode-group" class="py-2.5 rounded-xl text-xs font-bold border border-white/10 transition cursor-pointer">👥 群組公帳</button>
+                </div>
+                <div id="group-input-box" class="space-y-1.5 pt-1 hidden">
+                    <input type="text" id="input-group-id" placeholder="請確認或貼上 LINE 群組 ID..." class="w-full bg-[#0A1128] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white font-mono focus:outline-none">
+                </div>
+            </div>
+            <button onclick="finalizeEntry()" class="w-full bg-white text-[#0A1128] font-bold text-xs tracking-widest py-3.5 rounded-xl hover:bg-white/90 transition shadow-md cursor-pointer uppercase">🚀 進入雲端帳本後台</button>
+        </div>
+    </div>
+
+    <header class="bg-[#000411]/40 backdrop-blur-md text-white/90 py-4 px-6 border-b border-white/5 sticky top-0 z-30 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+            <span id="user-avatar" class="w-6 h-6 rounded-full bg-white/10 bg-cover bg-center"></span>
+            <span id="user-name" class="text-xs font-bold tracking-wider">載入中...</span>
+            <span id="mode-badge" class="text-[9px] bg-white/10 text-white/70 px-2 py-0.5 rounded-full font-medium tracking-wider">個人模式</span>
+        </div>
+        <span class="text-[9px] text-white/30 tracking-widest uppercase font-semibold">Rice Cooker Tech</span>
+    </header>
+
+    <div class="flex-1 w-full mx-auto">
         
-        <!-- 🟢 頂部導航與動態狀態欄 -->
-        <main class="space-y-6 flex-1">
-            <header class="flex items-center justify-between border-b border-white/5 pb-4">
-                <div class="flex items-center gap-3">
-                    <div id="user-avatar" class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 p-[2px] shadow-lg shadow-emerald-950/30">
-                        <div id="avatar-img" class="w-full h-full rounded-[10px] bg-[#0A1128] bg-cover bg-center"></div>
-                    </div>
+        <main id="page-home" class="max-w-md mx-auto px-6 py-6 space-y-6">
+            <section class="bg-[#1C2541] rounded-2xl p-6 shadow-xl border border-white/5 relative overflow-hidden">
+                <h2 id="balance-title" class="text-[11px] text-white/50 font-medium tracking-widest uppercase">本月收支結餘 (唯讀)</h2>
+                <div id="home-net-balance" class="text-3xl font-bold mt-1 tracking-tight font-mono">$0</div>
+                <div id="home-totals-row" class="grid grid-cols-2 gap-4 mt-6 pt-5 border-t border-white/10">
                     <div>
-                        <h1 class="text-sm font-bold tracking-wider text-white/90" id="user-name">載入中...</h1>
-                        <p class="text-[10px] font-mono text-emerald-400 tracking-tight mt-0.5" id="connection-status">LINE 安全對接中...</p>
+                        <span class="text-[10px] text-white/40 block tracking-wider uppercase">總收入</span>
+                        <span id="home-total-income" class="text-base font-bold text-white font-mono">+$0</span>
                     </div>
-                </div>
-                <!-- 模式標籤 -->
-                <span id="mode-badge" class="text-[10px] px-2.5 py-1 rounded-lg font-bold uppercase tracking-wider bg-white/5 text-white/40 border border-white/5 shadow-inner">
-                    驗證中
-                </span>
-            </header>
-
-            <!-- 📊 數據圖表核心區（僅常態模式、公帳模式顯示） -->
-            <section id="dashboard-section" class="bg-[#111A36] rounded-2xl p-5 border border-white/5 shadow-xl space-y-4">
-                <div class="flex justify-between items-center">
-                    <h2 class="text-xs font-bold tracking-widest text-white/50 uppercase">📈 收支動態分佈</h2>
-                    <div class="text-right">
-                        <p class="text-[10px] text-white/40 font-medium">當月累計總支出</p>
-                        <p class="text-lg font-black text-rose-400 font-mono" id="total-expense-amount">$0</p>
-                    </div>
-                </div>
-                <!-- 圓餅圖容器 -->
-                <div class="relative h-44 flex items-center justify-center">
-                    <canvas id="expenseChart" class="max-w-full max-h-full"></canvas>
-                    <div id="empty-chart-text" class="absolute inset-0 flex items-center justify-center text-xs text-white/20 font-mono bg-[#111A36]/80 hidden">
-                        尚無記帳數據
+                    <div class="border-l border-white/10 pl-4">
+                        <span class="text-[10px] text-white/40 block tracking-wider uppercase">總支出</span>
+                        <span id="home-total-expense" class="text-base font-medium text-white/70 font-mono">-$0</span>
                     </div>
                 </div>
             </section>
 
-            <!-- 🎛️ 狀態機控制面板（僅群組公帳模式顯示） -->
-            <section id="state-machine-section" class="bg-[#111A36] rounded-2xl p-4 border border-white/5 shadow-xl space-y-3 hidden">
-                <div class="text-[10px] font-bold text-white/40 tracking-widest uppercase">⚙️ 群組機器人狀態控制</div>
-                <div class="grid grid-cols-3 gap-2">
-                    <button onclick="updateGroupState('normal')" id="btn-state-normal" class="py-2.5 text-xs font-bold rounded-xl border border-white/5 bg-white/5 text-white/40 transition-all cursor-pointer">常態模式</button>
-                    <button onclick="updateGroupState('order')" id="btn-state-order" class="py-2.5 text-xs font-bold rounded-xl border border-white/5 bg-white/5 text-white/40 transition-all cursor-pointer">訂單模式</button>
-                    <button onclick="updateGroupState('settle')" id="btn-state-settle" class="py-2.5 text-xs font-bold rounded-xl border border-white/5 bg-white/5 text-white/40 transition-all cursor-pointer">結算模式</button>
-                </div>
+            <section class="bg-[#1C2541] rounded-2xl p-6 shadow-xl border border-white/5">
+                <h3 id="chart-title" class="text-[11px] font-bold text-white/50 tracking-widest uppercase mb-4">支出統計比例</h3>
+                <div class="w-full max-w-[200px] mx-auto"><canvas id="homeExpenseChart"></canvas></div>
             </section>
 
-            <!-- 📋 核心數據展示區 -->
-            <section class="bg-[#111A36] rounded-2xl p-5 border border-white/5 shadow-xl space-y-4">
-                <div class="flex justify-between items-center border-b border-white/5 pb-3">
-                    <h3 class="text-xs font-bold text-white/70 tracking-wider flex items-center gap-1.5">
-                        <span id="list-title">流水帳明細管理</span>
-                    </h3>
-                    <span class="text-[10px] font-mono text-white/30" id="item-count">0 筆紀錄</span>
-                </div>
-
-                <!-- 歷史明細滾動區 -->
-                <div id="loading-text" class="text-center py-10 text-white/30 text-xs font-mono">正在安全聯接雲端數據庫...</div>
-                <div id="data-list" class="space-y-1 overflow-y-auto max-h-[280px] pr-1 no-scrollbar divide-y divide-white/5">
-                    <!-- 動態渲染插入點 -->
-                </div>
+            <section class="bg-[#1C2541] rounded-2xl p-6 shadow-xl border border-white/5">
+                <h3 id="history-title" class="text-[11px] font-bold text-white/50 tracking-widest uppercase mb-4">📑 當月即時流水帳 (唯讀)</h3>
+                <div id="home-history-list" class="space-y-4 divide-y divide-white/5"></div>
             </section>
         </main>
 
-        <!-- 🔄 底部保底防線與重整面板 -->
-        <footer class="mt-6 space-y-3">
-            <button onclick="triggerForceRelogin()" class="w-full bg-rose-500/5 hover:bg-rose-500/10 text-rose-400/70 hover:text-rose-400 border border-rose-500/10 font-mono text-[10px] py-2.5 rounded-xl transition tracking-widest uppercase cursor-pointer text-center">
-                🔄 核心對接異常？清除快取強制重配
-            </button>
-        </footer>
+        <main id="page-manage" class="max-w-md mx-auto px-6 py-6 space-y-6 hidden">
+            <section class="bg-[#1C2541] rounded-2xl p-5 shadow-xl border border-white/5 space-y-4">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-[10px] text-white/40 block tracking-wider uppercase mb-1">起始日期</label>
+                        <input type="date" id="filter-start" class="w-full bg-[#0A1128] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-white/40 block tracking-wider uppercase mb-1">結束日期</label>
+                        <input type="date" id="filter-end" class="w-full bg-[#0A1128] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+                    </div>
+                </div>
+                <button onclick="queryManagedData()" class="w-full bg-white text-[#0A1128] font-bold text-xs tracking-widest py-3 rounded-xl hover:bg-white/90 transition shadow-md cursor-pointer uppercase">
+                    🔍 發動條件檢索
+                </button>
+            </section>
+
+            <section class="bg-[#1C2541] rounded-2xl p-6 shadow-xl border border-white/5">
+                <h3 id="manage-box-title" class="text-[11px] font-bold text-white/50 tracking-widest uppercase mb-4">🛠️ 數據進階維護控制台</h3>
+                <div id="manage-loading-text" class="text-center py-8 text-white/30 text-xs tracking-wider hidden">正在檢索資料庫...</div>
+                <div id="manage-history-list" class="space-y-4 divide-y divide-white/5"></div>
+            </section>
+        </main>
     </div>
 
-    <!-- 🌐 Core Engine System -->
+    <footer class="fixed bottom-0 inset-x-0 bg-[#000411]/80 backdrop-blur-lg border-t border-white/5 z-30 pb-safe">
+        <div class="max-w-md mx-auto grid grid-cols-2 h-16">
+            <button onclick="switchPage('home')" id="btn-nav-home" class="flex flex-col items-center justify-center gap-1 transition text-white"><span class="text-base">📊</span><span id="tab-title-1" class="text-[10px] tracking-wider">數據簡報</span></button>
+            <button onclick="switchPage('manage')" id="btn-nav-manage" class="flex flex-col items-center justify-center gap-1 transition text-white/40"><span class="text-base">📑</span><span id="tab-title-2" class="text-[10px] tracking-wider">進階維護</span></button>
+        </div>
+    </footer>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, doc, query, getDocs, getDoc, updateDoc, deleteDoc, orderBy, limit, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, query, where, orderBy, getDocs, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // 🛠️ 1. 請在此填入您的 Firebase 配置
+        // 🔥 請更換為你的網頁端 Firebase Config
         const firebaseConfig = {
           apiKey: "AIzaSyCqTPnsxv_hOJkR0BnsKjQWgLvlQ3GR9E0",
           authDomain: "ricemoney-db.firebaseapp.com",
@@ -103,306 +120,269 @@
           appId: "1:114147437445:web:3b6dde2873baf6fb3232ec",
           measurementId: "G-55SFYJSG6D"
         };
-        const app = initializeApp(firebaseConfig); 
-        const db = getFirestore(app);
-        
-        // 🛠️ 2. 請在此填入您的 LIFF ID
-        const MY_LIFF_ID = "2010446205-W1G1WDQQ"; 
+        const app = initializeApp(firebaseConfig); const db = getFirestore(app);
+        const MY_LIFF_ID = "2010446205-W1G1WDQQ";  // 🔥 請更換為你的 LIFF ID
 
-        // 全域核心狀態控制
-        let finalTargetId = null;
-        let isGroupMode = false;
-        let currentGroupState = 'normal'; 
-        let expenseChart = null;
-        let unsubscribeList = null;
-        let unsubscribeState = null;
+        let homeChart = null; let globalUserId = null; let globalProfile = null;
+        let isGroupModeSelected = false; let finalTargetId = null;
 
-        window.addEventListener('DOMContentLoaded', () => {
-            bootloaderSystem();
-        });
-
-        // 🚀 核心雙驅動引導系統：解析網址與初始化 LINE SDK 平行運作，杜絕封鎖
-        async function bootloaderSystem() {
-            const statusEl = document.getElementById("connection-status");
-            const nameEl = document.getElementById("user-name");
-            const avatarEl = document.getElementById("avatar-img");
-
-            // 步驟 A：搶先解析 URL 參數
-            const urlParams = new URLSearchParams(window.location.search);
-            const urlGroupId = urlParams.get('groupId');
-            const urlUserId = urlParams.get('userId');
-
-            if (urlGroupId) { finalTargetId = urlGroupId; isGroupMode = true; } 
-            else if (urlUserId) { finalTargetId = urlUserId; isGroupMode = false; }
-
-            // 步驟 B：啟動 LINE SDK 連線
+        async function initLIFF() {
             try {
                 await liff.init({ liffId: MY_LIFF_ID });
-                
-                if (!liff.isLoggedIn()) {
-                    liff.login({ redirectUri: window.location.href });
-                    return;
-                }
+                if (!liff.isLoggedIn()) { liff.login(); return; }
+                globalProfile = await liff.getProfile(); globalUserId = globalProfile.userId;
+                document.getElementById("confirm-name").innerText = globalProfile.displayName;
+                if (globalProfile.pictureUrl) document.getElementById("confirm-avatar").style.backgroundImage = `url('${globalProfile.pictureUrl}')`;
 
-                statusEl.innerText = "✅ 安全隧道對接完畢";
-                
-                // 取得使用者資訊
-                const context = liff.getContext();
-                let userIdFromSDK = context?.userId;
-                
-                try {
-                    const profile = await liff.getProfile();
-                    if (profile) {
-                        nameEl.innerText = profile.displayName;
-                        avatarEl.style.backgroundImage = `url('${profile.pictureUrl}')`;
-                        if (!userIdFromSDK) userIdFromSDK = profile.userId;
-                    }
-                } catch(pErr) {
-                    nameEl.innerText = "雲端對帳主";
-                }
-
-                // 若網址未給參數，用 SDK 抓到的個人 ID 當保底
-                if (!finalTargetId && userIdFromSDK) {
-                    finalTargetId = userIdFromSDK;
-                    isGroupMode = false;
-                }
-
-            } catch (err) {
-                console.warn("LINE SDK 遭沙盒攔截，啟動代理防禦機制", err);
-                statusEl.innerText = "⚠️ 已啟動 WebView 安全無痕代理";
-                nameEl.innerText = "管理員 (沙盒模式)";
-                
-                if (!finalTargetId) {
-                    statusEl.innerText = "🔄 通訊時差，正在自動重置校驗...";
-                    setTimeout(() => { triggerForceRelogin(); }, 1200);
-                    return;
-                }
-            }
-
-            // 步驟 C：啟動核心渲染與即時監聽
-            renderIdentityUI();
-            injectRealtimeDataPipeline();
+                const urlParams = new URLSearchParams(window.location.search);
+                const urlGroupId = urlParams.get('groupId');
+                if (urlGroupId) { document.getElementById("input-group-id").value = urlGroupId; setConfirmMode(true); } 
+                else { setConfirmMode(false); }
+                document.getElementById("confirm-gateway").classList.remove("hidden");
+            } catch (error) { console.error(error); }
         }
 
-        // 🎨 依模式渲染 UI 外觀
-        function renderIdentityUI() {
-            const badge = document.getElementById("mode-badge");
-            const stateCtrl = document.getElementById("state-machine-section");
-            const listTitle = document.getElementById("list-title");
-
-            if (isGroupMode) {
-                badge.innerText = "群組公帳";
-                badge.className = "text-[10px] px-2.5 py-1 rounded-lg font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-md animate-pulse";
-                stateCtrl.classList.remove("hidden");
-                listTitle.innerText = "📊 群組核銷對帳單";
+        window.setConfirmMode = function(toGroupMode) {
+            isGroupModeSelected = toGroupMode;
+            const btnUser = document.getElementById("btn-mode-user"); const btnGroup = document.getElementById("btn-mode-group");
+            const groupInputBox = document.getElementById("group-input-box");
+            if (toGroupMode) {
+                btnGroup.className = "py-2.5 rounded-xl text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 transition cursor-pointer";
+                btnUser.className = "py-2.5 rounded-xl text-xs font-bold bg-white/5 text-white/40 border border-white/5 transition cursor-pointer";
+                groupInputBox.classList.remove("hidden");
             } else {
-                badge.innerText = "個人帳本";
-                badge.className = "text-[10px] px-2.5 py-1 rounded-lg font-bold uppercase tracking-wider bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shadow-md";
-                stateCtrl.classList.add("hidden");
-                listTitle.innerText = "📋 個人花費流水帳";
+                btnUser.className = "py-2.5 rounded-xl text-xs font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30 transition cursor-pointer";
+                btnGroup.className = "py-2.5 rounded-xl text-xs font-bold bg-white/5 text-white/40 border border-white/5 transition cursor-pointer";
+                groupInputBox.classList.add("hidden");
             }
         }
 
-        // 🔄 Firebase 實時資料串流管道（解決跨站時差）
-        function injectRealtimeDataPipeline() {
-            const loadingTxt = document.getElementById("test-loading-text");
-            if (unsubscribeList) unsubscribeList();
-            if (unsubscribeState) unsubscribeState();
-
-            const rootCollection = isGroupMode ? "groups" : "users";
-            
-            // A. 異步監聽流水帳/訂單明細
-            // 策略：若是群組，且在結算/訂單模式下，我們一樣能從對應集合拉取
-            const expRef = collection(db, rootCollection, finalTargetId, "expenses");
-            const q = query(expRef, orderBy("timestamp", "desc"), limit(40));
-
-            // 防線：超時重整安全鎖
-            const timeoutGuard = setTimeout(() => {
-                const loader = document.getElementById("loading-text");
-                if (loader && !loader.classList.contains("hidden")) {
-                    triggerForceRelogin();
-                }
-            }, 3500);
-
-            unsubscribeList = onSnapshot(q, (snap) => {
-                clearTimeout(timeoutGuard);
-                document.getElementById("loading-text").classList.add("hidden");
-                renderDataRows(snap);
-            }, (err) => {
-                clearTimeout(timeoutGuard);
-                console.error("Firebase 連線受阻: ", err);
-                setTimeout(() => { triggerForceRelogin(); }, 2000);
-            });
-
-            // B. 若為群組，額外異步監聽群組狀態機
-            if (isGroupMode) {
-                const groupDocRef = doc(db, "groups", finalTargetId);
-                unsubscribeState = onSnapshot(groupDocRef, (docSnap) => {
-                    if (docSnap.exists()) {
-                        const data = docSnap.data();
-                        currentGroupState = data.state || 'normal';
-                        refreshStateButtons();
-                    }
-                });
-            }
-        }
-
-        // 🖌️ 渲染明細列表與對帳核銷機制
-        function renderDataRows(snap) {
-            const listEl = document.getElementById("data-list");
-            const countEl = document.getElementById("item-count");
-            
-            listEl.innerHTML = "";
-            countEl.innerText = `${snap.size} 筆紀錄`;
-
-            if (snap.empty) {
-                listEl.innerHTML = `<div class="text-center py-12 text-white/20 text-xs font-mono tracking-wide">雲端資料庫內尚無數據紀錄</div>`;
-                updateChartData({}, []);
-                return;
-            }
-
-            let categoryMap = {};
-            let totalExpense = 0;
-            let htmlStr = "";
-
-            snap.forEach((docSnap) => {
-                const d = docSnap.data();
-                const docId = docSnap.id;
-                const item = d.item || "未分類品項";
-                const amount = Number(d.amount) || 0;
-                const type = d.type || "expense";
-                const category = d.category || "其它";
-                const payer = d.created_by_name || "成員";
-
-                if (type === 'expense') {
-                    totalExpense += amount;
-                    categoryMap[category] = (categoryMap[category] || 0) + amount;
-                }
-
-                // 核心核銷與刪除按鈕
-                htmlStr += `
-                    <div class="flex justify-between items-center py-3 font-mono text-xs group transition-all duration-150 hover:bg-white/[0.02] px-2 rounded-xl">
-                        <div class="flex flex-col space-y-0.5">
-                            <span class="text-white/90 font-bold tracking-wide">${item}</span>
-                            <span class="text-[9px] text-white/30">Payer: ${payer} ｜ ${category}</span>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <span class="font-black ${type === 'income' ? 'text-emerald-400' : 'text-rose-400/90'}">
-                                ${type === 'income' ? '+' : '-'} $${amount}
-                            </span>
-                            <button onclick="deleteRecord('${docId}')" class="text-[10px] text-rose-500/40 hover:text-rose-400 px-1 py-0.5 border border-transparent hover:border-rose-500/20 rounded opacity-80 hover:opacity-100 transition-all cursor-pointer">
-                                刪除
-                            </button>
-                        </div>
-                    </div>`;
-            });
-
-            listEl.innerHTML = htmlStr;
-            document.getElementById("total-expense-amount").innerText = `$${totalExpense.toLocaleString()}`;
-            
-            // 更新圓餅圖
-            updateChartData(categoryMap, Object.keys(categoryMap));
-        }
-
-        // 📊 Chart.js 圓餅圖動態渲染優化
-        function updateChartData(dataMap, labels) {
-            const ctx = document.getElementById('expenseChart').getContext('2d');
-            const emptyTxt = document.getElementById("empty-chart-text");
-
-            if (labels.length === 0) {
-                emptyTxt.classList.remove("hidden");
-                if (expenseChart) expenseChart.destroy();
-                return;
-            }
-            emptyTxt.classList.add("hidden");
-
-            const dataValues = labels.map(l => dataMap[l]);
-            const backgroundColors = [
-                'rgba(16, 185, 129, 0.65)', // emerald
-                'rgba(59, 130, 246, 0.65)', // blue
-                'rgba(245, 158, 11, 0.65)', // amber
-                'rgba(239, 68, 68, 0.65)',  // rose
-                'rgba(139, 92, 246, 0.65)', // purple
-                'rgba(107, 114, 128, 0.65)' // gray
-            ];
-            const borderColors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#6b7280'];
-
-            if (expenseChart) {
-                expenseChart.data.labels = labels;
-                expenseChart.data.datasets[0].data = dataValues;
-                expenseChart.update();
+        window.finalizeEntry = function() {
+            const inputGroupVal = document.getElementById("input-group-id").value.trim();
+            if (isGroupModeSelected) {
+                if (!inputGroupVal) { alert("請輸入群組 ID！"); return; }
+                finalTargetId = inputGroupVal;
+                document.getElementById("mode-badge").innerText = "👥 群組公帳模式";
+                document.getElementById("mode-badge").className = "text-[9px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full font-medium tracking-wider";
+                document.getElementById("balance-title").innerText = "本月群組總開銷公帳 (唯讀)";
+                document.getElementById("chart-title").innerText = "👥 群組成員支出比例統計";
+                document.getElementById("history-title").innerText = "📑 本月群組消費流水帳 (唯讀)";
+                document.getElementById("tab-title-2").innerText = "核銷紀錄";
+                document.getElementById("manage-box-title").innerText = "🤝 群組平帳核銷維護控制台";
+                document.getElementById("user-name").innerText = `${globalProfile.displayName} (群組成員)`;
             } else {
-                expenseChart = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            data: dataValues,
-                            backgroundColor: backgroundColors,
-                            borderColor: borderColors,
-                            borderWidth: 1.5,
-                            hoverOffset: 6
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                position: 'right',
-                                labels: { color: 'rgba(255, 255, 255, 0.6)', font: { size: 10, family: 'monospace' }, boxWidth: 12 }
-                            }
-                        },
-                        cutout: '70%'
-                    }
-                });
+                finalTargetId = globalUserId;
+                document.getElementById("mode-badge").innerText = "👤 個人私帳模式";
+                document.getElementById("balance-title").innerText = "本月收支結餘 (唯讀)";
+                document.getElementById("chart-title").innerText = "支出分類比例";
+                document.getElementById("history-title").innerText = "📑 當月即時流水帳 (唯讀)";
+                document.getElementById("tab-title-2").innerText = "進階維護";
+                document.getElementById("manage-box-title").innerText = "🛠️ 個人記帳進階維護控制台";
+                document.getElementById("user-name").innerText = globalProfile.displayName;
+            }
+            if (globalProfile.pictureUrl) document.getElementById("user-avatar").style.backgroundImage = `url('${globalProfile.pictureUrl}')`;
+            const now = new Date();
+            document.getElementById("filter-start").value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+            document.getElementById("filter-end").value = now.toISOString().split('T')[0];
+            document.getElementById("confirm-gateway").remove();
+            loadHomeDashboard();
+        }
+
+        window.switchPage = function(pageTarget) {
+            const homePage = document.getElementById("page-home"); const managePage = document.getElementById("page-manage");
+            const btnHome = document.getElementById("btn-nav-home"); const btnManage = document.getElementById("btn-nav-manage");
+            if (pageTarget === 'home') {
+                homePage.classList.remove("hidden"); managePage.classList.add("hidden");
+                btnHome.className = "flex flex-col items-center justify-center gap-1 transition text-white font-semibold";
+                btnManage.className = "flex flex-col items-center justify-center gap-1 transition text-white/40";
+                loadHomeDashboard();
+            } else {
+                homePage.classList.add("hidden"); managePage.classList.remove("hidden");
+                btnHome.className = "flex flex-col items-center justify-center gap-1 transition text-white/40";
+                btnManage.className = "flex flex-col items-center justify-center gap-1 transition text-white font-semibold";
+                queryManagedData();
             }
         }
 
-        // ⚙️ 狀態機遠端即時切換
-        window.updateGroupState = async function(newState) {
-            if (!isGroupMode || !finalTargetId) return;
+        // 🏠 頁面一加載
+        async function loadHomeDashboard() {
             try {
-                const groupDocRef = doc(db, "groups", finalTargetId);
-                await updateDoc(groupDocRef, { state: newState });
-            } catch(e) {
-                console.error("狀態機變更失敗:", e);
-            }
-        }
+                const now = new Date(); const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                const rootCollection = isGroupModeSelected ? "groups" : "users";
+                const expensesRef = collection(db, rootCollection, finalTargetId, "expenses");
+                const q = query(expensesRef, where("timestamp", ">=", startOfMonth), orderBy("timestamp", "desc"));
+                const querySnapshot = await getDocs(q);
 
-        function refreshStateButtons() {
-            const states = ['normal', 'order', 'settle'];
-            states.forEach(s => {
-                const btn = document.getElementById(`btn-state-${s}`);
-                if (!btn) return;
-                if (currentGroupState === s) {
-                    btn.className = "py-2.5 text-xs font-bold rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 transition-all shadow-md shadow-emerald-950/20 scale-[1.02] cursor-pointer";
+                let incomeTotal = 0, expenseTotal = 0;
+                let chartDataMap = {}; // 個人存 category，群組存 created_by_name
+                let listHtml = "";
+
+                if (querySnapshot.empty) {
+                    document.getElementById("home-history-list").innerHTML = `<div class="text-center py-6 text-white/20 text-xs">當月尚無任何數據。</div>`;
+                    renderHomeChart({}); document.getElementById("home-net-balance").innerText = "$0"; return;
+                }
+
+                querySnapshot.forEach((res) => {
+                    const data = res.data(); const amt = data.amount || 0;
+                    const type = data.type || "expense"; const item = data.item || "未命名";
+                    const cat = data.category || "生活雜費"; const payer = data.created_by_name || "未知";
+                    const dateObj = data.timestamp ? data.timestamp.toDate() : new Date();
+                    const dateStr = `${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+
+                    if (type === "income") incomeTotal += amt;
+                    else {
+                        expenseTotal += amt;
+                        if (isGroupModeSelected) { chartDataMap[payer] = (chartDataMap[payer] || 0) + amt; } 
+                        else { chartDataMap[cat] = (chartDataMap[cat] || 0) + amt; }
+                    }
+
+                    listHtml += `
+                        <div class="flex justify-between items-center pt-4 text-sm first:pt-0">
+                            <div class="flex items-center gap-3">
+                                <div class="w-7 h-7 rounded-full ${type==='income' ? 'bg-white text-[#0A1128] font-bold' : 'bg-white/10 border border-white/5 text-white/80'} text-[11px] flex items-center justify-center">${type==='income'?'入':'支'}</div>
+                                <div class="flex flex-col">
+                                    <span class="font-medium text-white/90 tracking-wide">${item} <span class="text-[9px] text-white/30 font-normal">${isGroupModeSelected ? 'by '+payer : ''}</span></span>
+                                    <span class="text-[10px] text-white/40 mt-0.5">${cat}</span>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <span class="font-bold font-mono ${type==='income' ? 'text-white' : 'text-white/60'}">${type==='income'?'+':'-'} $${amt.toLocaleString()}</span>
+                                <span class="text-white/30 block text-[9px] mt-0.5">${dateStr}</span>
+                            </div>
+                        </div>`;
+                });
+
+                if (isGroupModeSelected) {
+                    document.getElementById("home-net-balance").innerText = `$${expenseTotal.toLocaleString()}`;
+                    document.getElementById("home-totals-row").classList.add("hidden"); // 群組隱藏個人淨結餘行
                 } else {
-                    btn.className = "py-2.5 text-xs font-bold rounded-xl border border-white/5 bg-white/5 text-white/40 hover:bg-white/[0.08] hover:text-white/70 transition-all cursor-pointer";
+                    document.getElementById("home-totals-row").classList.remove("hidden");
+                    document.getElementById("home-total-income").innerText = `+$${incomeTotal.toLocaleString()}`;
+                    document.getElementById("home-total-expense").innerText = `-$${expenseTotal.toLocaleString()}`;
+                    const net = incomeTotal - expenseTotal;
+                    document.getElementById("home-net-balance").innerText = `${net >= 0 ? '' : '-'}$$${Math.abs(net).toLocaleString()}`;
+                }
+                document.getElementById("home-history-list").innerHTML = listHtml;
+                renderHomeChart(chartDataMap);
+            } catch (e) { console.error(e); }
+        }
+
+        // ⚙️ 頁面二加載 (個人拉 expenses 記帳 ； 群組拉 settlements 核銷)
+        window.queryManagedData = async function() {
+            const startVal = document.getElementById("filter-start").value;
+            const endVal = document.getElementById("filter-end").value;
+            if (!startVal || !endVal) return;
+
+            const loadingTxt = document.getElementById("manage-loading-text");
+            const manageList = document.getElementById("manage-history-list");
+            loadingTxt.classList.remove("hidden"); manageList.innerHTML = "";
+
+            try {
+                const startDate = new Date(startVal + "T00:00:00"); const endDate = new Date(endVal + "T23:59:59");
+                const rootCollection = isGroupModeSelected ? "groups" : "users";
+                const subCollection = isGroupModeSelected ? "settlements" : "expenses"; // 🎯 關鍵分流：群組查核銷紀錄
+                
+                const expensesRef = collection(db, rootCollection, finalTargetId, subCollection);
+                const q = query(expensesRef, where("timestamp", ">=", startDate), where("timestamp", "<=", endDate), orderBy("timestamp", "desc"));
+                const querySnapshot = await getDocs(q);
+
+                loadingTxt.classList.add("hidden");
+                let listHtml = "";
+
+                if (querySnapshot.empty) {
+                    manageList.innerHTML = `<div class="text-center py-12 text-white/20 text-xs">此區間內查無任何紀錄。</div>`; return;
+                }
+
+                querySnapshot.forEach((res) => {
+                    const id = res.id; const data = res.data(); const amt = data.amount || 0;
+                    const dateObj = data.timestamp ? data.timestamp.toDate() : new Date();
+                    const dateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+
+                    if (isGroupModeSelected) {
+                        // 🤝 渲染群組核銷 UI
+                        const payer = data.payer_name || "未知"; const receiver = data.receiver_name || "未知";
+                        listHtml += `
+                            <div class="flex justify-between items-center pt-4 text-sm first:pt-0">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-7 h-7 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-[11px] flex items-center justify-center">平</div>
+                                    <div class="flex flex-col">
+                                        <span class="font-medium text-white/90 tracking-wide">${payer} ➡️ 還給 ${receiver}</span>
+                                        <span class="text-[10px] text-white/30 mt-0.5 font-mono">${dateStr}</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="font-bold font-mono text-emerald-400">$${amt.toLocaleString()}</span>
+                                    <button onclick="deleteSettle('${id}')" class="w-7 h-7 rounded-lg text-rose-400/40 hover:text-rose-400 hover:bg-rose-500/10 transition flex items-center justify-center text-xs">🗑️</button>
+                                </div>
+                            </div>`;
+                    } else {
+                        # 👤 渲染個人傳統增改刪 UI
+                        const type = data.type || "expense"; const item = data.item || "未命名"; const cat = data.category || "生活雜費";
+                        listHtml += `
+                            <div class="flex justify-between items-center pt-4 text-sm first:pt-0">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-7 h-7 rounded-full ${type==='income'?'bg-white text-[#0A1128] font-bold':'bg-white/10 text-white/80'} text-[11px] flex items-center justify-center">${type==='income'?'入':'支'}</div>
+                                    <div class="flex flex-col">
+                                        <span class="font-medium text-white/90 tracking-wide">${item}</span>
+                                        <span class="text-[10px] text-white/30 mt-0.5 font-mono">${dateStr} ｜ ${cat}</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="font-bold font-mono">${type==='income'?'+':'-'} $${amt.toLocaleString()}</span>
+                                    <div class="flex items-center gap-1 pl-1 border-l border-white/5">
+                                        <button onclick="editRecord('${id}', '${item}', ${amt})" class="w-7 h-7 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition flex items-center justify-center text-xs">✎</button>
+                                        <button onclick="deleteRecord('${id}', '${item}')" class="w-7 h-7 rounded-lg text-rose-400/40 hover:text-rose-400 hover:bg-rose-500/10 transition flex items-center justify-center text-xs">🗑️</button>
+                                    </div>
+                                </div>
+                            </div>`;
+                    }
+                });
+
+                manageList.innerHTML = listHtml;
+            } catch (e) { console.error(e); loadingTxt.classList.add("hidden"); }
+        }
+
+        // 🛠️ 個人版專屬增刪改邏輯
+        window.editRecord = async function(docId, currentItem, currentAmount) {
+            const newItem = prompt("請輸入修正後的項目名稱:", currentItem); if (!newItem) return;
+            const newAmountStr = prompt("請輸入修正後的金額:", currentAmount); if (!newAmountStr) return;
+            const newAmount = parseInt(newAmountStr, 10); if (isNaN(newAmount) || newAmount <= 0) return;
+            try { await updateDoc(doc(db, "users", finalTargetId, "expenses", docId), { item: newItem.trim(), amount: newAmount }); queryManagedData(); } catch (e) {}
+        }
+        window.deleteRecord = async function(docId, itemTitle) {
+            if (confirm(`⚠️ 確定要徹底刪除個人紀錄「${itemTitle}」嗎？`)) {
+                try { await deleteDoc(doc(db, "users", finalTargetId, "expenses", docId)); queryManagedData(); } catch (e) {}
+            }
+        }
+
+        // 🤝 群組核銷一鍵剔除
+        window.deleteSettle = async function(docId) {
+            if (confirm(`⚠️ 確定要刪除這筆核銷對帳紀錄嗎？（刪除後該平帳算式將失效）`)) {
+                try { await deleteDoc(doc(db, "groups", finalTargetId, "settlements", docId)); queryManagedData(); } catch (e) {}
+            }
+        }
+
+        function renderHomeChart(chartDataMap) {
+            const canvasElement = document.getElementById('homeExpenseChart'); if (!canvasElement) return;
+            const ctx = canvasElement.getContext('2d'); const labels = Object.keys(chartDataMap); const dataValues = Object.values(chartDataMap);
+            if (homeChart) { homeChart.destroy(); homeChart = null; }
+            if (labels.length === 0) { ctx.clearRect(0, 0, canvasElement.width, canvasElement.height); return; }
+
+            homeChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{ data: dataValues, backgroundColor: ['#FFFFFF', '#34D399', '#60A5FA', '#FBBF24', '#F87171', '#A78BFA'], borderWidth: 2, borderColor: '#1C2541' }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 6, padding: 8, font: { size: 9 }, color: 'rgba(255, 255, 255, 0.4)' } } },
+                    cutout: '75%'
                 }
             });
         }
 
-        // 🗑️ 單筆紀錄核銷刪除
-        window.deleteRecord = async function(docId) {
-            if (!confirm("確定要核銷或刪除此筆對帳明細嗎？")) return;
-            const rootCollection = isGroupMode ? "groups" : "users";
-            try {
-                const docRef = doc(db, rootCollection, finalTargetId, "expenses", docId);
-                await deleteDoc(docRef);
-            } catch (err) {
-                alert("刪除失敗，請檢查權限或網域安全設定");
-            }
-        }
-
-        // 🎯 萬能全域清除快取重整防線
-        window.triggerForceRelogin = function() {
-            try { liff.logout(); } catch(e){}
-            const cleanUrl = new URL(window.location.href);
-            cleanUrl.searchParams.delete('groupId');
-            cleanUrl.searchParams.delete('userId');
-            window.location.replace(cleanUrl.toString());
-        }
+        initLIFF();
     </script>
 </body>
 </html>
