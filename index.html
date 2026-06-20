@@ -3,38 +3,97 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>飯糰小幫手 ｜ 自動重整流暢版</title>
+    <title>飯糰小幫手 ｜ 雲端對帳管理系統</title>
+    <!-- Tailwind CSS v4 & Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
 </head>
-<body class="bg-[#0A1128] text-white font-sans antialiased p-6">
+<body class="bg-[#0A1128] text-white font-sans antialiased selection:bg-emerald-500/30 selection:text-emerald-400 no-scrollbar overflow-x-hidden min-h-screen">
 
-    <div class="max-w-md mx-auto space-y-6">
-        <header class="border-b border-white/10 pb-4">
-            <h1 class="text-base font-bold tracking-wider">🧪 飯糰自動對帳調試面板</h1>
-            <p class="text-xs text-white/40 mt-1 font-mono" id="test-status">正在喚醒安全防護...</p>
-        </header>
+    <div class="max-w-md mx-auto min-h-screen flex flex-col px-5 py-6 justify-between">
+        
+        <!-- 🟢 頂部導航與動態狀態欄 -->
+        <main class="space-y-6 flex-1">
+            <header class="flex items-center justify-between border-b border-white/5 pb-4">
+                <div class="flex items-center gap-3">
+                    <div id="user-avatar" class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 p-[2px] shadow-lg shadow-emerald-950/30">
+                        <div id="avatar-img" class="w-full h-full rounded-[10px] bg-[#0A1128] bg-cover bg-center"></div>
+                    </div>
+                    <div>
+                        <h1 class="text-sm font-bold tracking-wider text-white/90" id="user-name">載入中...</h1>
+                        <p class="text-[10px] font-mono text-emerald-400 tracking-tight mt-0.5" id="connection-status">LINE 安全對接中...</p>
+                    </div>
+                </div>
+                <!-- 模式標籤 -->
+                <span id="mode-badge" class="text-[10px] px-2.5 py-1 rounded-lg font-bold uppercase tracking-wider bg-white/5 text-white/40 border border-white/5 shadow-inner">
+                    驗證中
+                </span>
+            </header>
 
-        <div class="bg-[#1C2541] rounded-xl p-4 border border-white/5 space-y-1">
-            <div class="text-[10px] text-white/40 uppercase tracking-widest font-bold">👤 雲端對接憑證 Target ID</div>
-            <div id="target-id-display" class="text-xs font-mono text-emerald-400 break-all font-bold">校驗中...</div>
-        </div>
+            <!-- 📊 數據圖表核心區（僅常態模式、公帳模式顯示） -->
+            <section id="dashboard-section" class="bg-[#111A36] rounded-2xl p-5 border border-white/5 shadow-xl space-y-4">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xs font-bold tracking-widest text-white/50 uppercase">📈 收支動態分佈</h2>
+                    <div class="text-right">
+                        <p class="text-[10px] text-white/40 font-medium">當月累計總支出</p>
+                        <p class="text-lg font-black text-rose-400 font-mono" id="total-expense-amount">$0</p>
+                    </div>
+                </div>
+                <!-- 圓餅圖容器 -->
+                <div class="relative h-44 flex items-center justify-center">
+                    <canvas id="expenseChart" class="max-w-full max-h-full"></canvas>
+                    <div id="empty-chart-text" class="absolute inset-0 flex items-center justify-center text-xs text-white/20 font-mono bg-[#111A36]/80 hidden">
+                        尚無記帳數據
+                    </div>
+                </div>
+            </section>
 
-        <div class="bg-[#1C2541] rounded-xl p-4 border border-white/5 space-y-4">
-            <h3 class="text-xs font-bold text-white/70 tracking-wider">📋 實時雲端花費明細</h3>
-            <div id="test-loading-text" class="text-center py-4 text-white/30 text-xs font-mono">正在安全對接雲端數據...</div>
-            <div id="test-history-list" class="space-y-3 divide-y divide-white/5"></div>
-        </div>
+            <!-- 🎛️ 狀態機控制面板（僅群組公帳模式顯示） -->
+            <section id="state-machine-section" class="bg-[#111A36] rounded-2xl p-4 border border-white/5 shadow-xl space-y-3 hidden">
+                <div class="text-[10px] font-bold text-white/40 tracking-widest uppercase">⚙️ 群組機器人狀態控制</div>
+                <div class="grid grid-cols-3 gap-2">
+                    <button onclick="updateGroupState('normal')" id="btn-state-normal" class="py-2.5 text-xs font-bold rounded-xl border border-white/5 bg-white/5 text-white/40 transition-all cursor-pointer">常態模式</button>
+                    <button onclick="updateGroupState('order')" id="btn-state-order" class="py-2.5 text-xs font-bold rounded-xl border border-white/5 bg-white/5 text-white/40 transition-all cursor-pointer">訂單模式</button>
+                    <button onclick="updateGroupState('settle')" id="btn-state-settle" class="py-2.5 text-xs font-bold rounded-xl border border-white/5 bg-white/5 text-white/40 transition-all cursor-pointer">結算模式</button>
+                </div>
+            </section>
 
-        <button onclick="triggerForceRelogin()" class="w-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 font-bold text-xs py-3 rounded-xl transition tracking-widest uppercase cursor-pointer">
-            🚨 感覺卡住？強制清除快取並重新登入
-        </button>
+            <!-- 📋 核心數據展示區 -->
+            <section class="bg-[#111A36] rounded-2xl p-5 border border-white/5 shadow-xl space-y-4">
+                <div class="flex justify-between items-center border-b border-white/5 pb-3">
+                    <h3 class="text-xs font-bold text-white/70 tracking-wider flex items-center gap-1.5">
+                        <span id="list-title">流水帳明細管理</span>
+                    </h3>
+                    <span class="text-[10px] font-mono text-white/30" id="item-count">0 筆紀錄</span>
+                </div>
+
+                <!-- 歷史明細滾動區 -->
+                <div id="loading-text" class="text-center py-10 text-white/30 text-xs font-mono">正在安全聯接雲端數據庫...</div>
+                <div id="data-list" class="space-y-1 overflow-y-auto max-h-[280px] pr-1 no-scrollbar divide-y divide-white/5">
+                    <!-- 動態渲染插入點 -->
+                </div>
+            </section>
+        </main>
+
+        <!-- 🔄 底部保底防線與重整面板 -->
+        <footer class="mt-6 space-y-3">
+            <button onclick="triggerForceRelogin()" class="w-full bg-rose-500/5 hover:bg-rose-500/10 text-rose-400/70 hover:text-rose-400 border border-rose-500/10 font-mono text-[10px] py-2.5 rounded-xl transition tracking-widest uppercase cursor-pointer text-center">
+                🔄 核心對接異常？清除快取強制重配
+            </button>
+        </footer>
     </div>
 
+    <!-- 🌐 Core Engine System -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, query, getDocs, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, doc, query, getDocs, getDoc, updateDoc, deleteDoc, orderBy, limit, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
+        // 🛠️ 1. 請在此填入您的 Firebase 配置
         const firebaseConfig = {
           apiKey: "AIzaSyCqTPnsxv_hOJkR0BnsKjQWgLvlQ3GR9E0",
           authDomain: "ricemoney-db.firebaseapp.com",
@@ -44,129 +103,304 @@
           appId: "1:114147437445:web:3b6dde2873baf6fb3232ec",
           measurementId: "G-55SFYJSG6D"
         };
-        const app = initializeApp(firebaseConfig); const db = getFirestore(app);
+        const app = initializeApp(firebaseConfig); 
+        const db = getFirestore(app);
         
+        // 🛠️ 2. 請在此填入您的 LIFF ID
         const MY_LIFF_ID = "2010446205-W1G1WDQQ"; 
 
+        // 全域核心狀態控制
         let finalTargetId = null;
+        let isGroupMode = false;
+        let currentGroupState = 'normal'; 
+        let expenseChart = null;
+        let unsubscribeList = null;
+        let unsubscribeState = null;
 
         window.addEventListener('DOMContentLoaded', () => {
-            startTestFlow();
+            bootloaderSystem();
         });
 
-        async function startTestFlow() {
-            const statusEl = document.getElementById("test-status");
-            const targetEl = document.getElementById("target-id-display");
+        // 🚀 核心雙驅動引導系統：解析網址與初始化 LINE SDK 平行運作，杜絕封鎖
+        async function bootloaderSystem() {
+            const statusEl = document.getElementById("connection-status");
+            const nameEl = document.getElementById("user-name");
+            const avatarEl = document.getElementById("avatar-img");
 
-            // 1. 攔截解析網址
+            // 步驟 A：搶先解析 URL 參數
             const urlParams = new URLSearchParams(window.location.search);
             const urlGroupId = urlParams.get('groupId');
             const urlUserId = urlParams.get('userId');
 
-            if (urlGroupId) { finalTargetId = urlGroupId; } 
-            else if (urlUserId) { finalTargetId = urlUserId; }
+            if (urlGroupId) { finalTargetId = urlGroupId; isGroupMode = true; } 
+            else if (urlUserId) { finalTargetId = urlUserId; isGroupMode = false; }
 
-            // 2. 喚醒 LINE SDK
+            // 步驟 B：啟動 LINE SDK 連線
             try {
                 await liff.init({ liffId: MY_LIFF_ID });
                 
-                // 🚀 【重整核心防線 A】如果未登入，立刻引導 LINE 登入流
                 if (!liff.isLoggedIn()) {
-                    console.log("偵測到未登入狀態，引導官方認證...");
                     liff.login({ redirectUri: window.location.href });
                     return;
                 }
 
-                statusEl.innerText = "✅ LINE 通道聯接完畢";
-
-                // 3. 補齊個人識別碼
-                if (!finalTargetId) {
-                    const context = liff.getContext();
-                    if (context && context.userId) {
-                        finalTargetId = context.userId;
-                    } else {
-                        const profile = await liff.getProfile();
-                        finalTargetId = profile.userId;
-                    }
-                }
-                targetEl.innerText = finalTargetId;
+                statusEl.innerText = "✅ 安全隧道對接完畢";
                 
-                // 4. 發動 Firebase 資料拉取
-                loadTestFirebaseData();
+                // 取得使用者資訊
+                const context = liff.getContext();
+                let userIdFromSDK = context?.userId;
+                
+                try {
+                    const profile = await liff.getProfile();
+                    if (profile) {
+                        nameEl.innerText = profile.displayName;
+                        avatarEl.style.backgroundImage = `url('${profile.pictureUrl}')`;
+                        if (!userIdFromSDK) userIdFromSDK = profile.userId;
+                    }
+                } catch(pErr) {
+                    nameEl.innerText = "雲端對帳主";
+                }
+
+                // 若網址未給參數，用 SDK 抓到的個人 ID 當保底
+                if (!finalTargetId && userIdFromSDK) {
+                    finalTargetId = userIdFromSDK;
+                    isGroupMode = false;
+                }
 
             } catch (err) {
-                console.warn("LINE SDK 被沙盒死鎖，啟動自動代理放行...", err);
-                statusEl.innerText = "⚠️ 觸發安全隔離機制 (已啟動代理)";
+                console.warn("LINE SDK 遭沙盒攔截，啟動代理防禦機制", err);
+                statusEl.innerText = "⚠️ 已啟動 WebView 安全無痕代理";
+                nameEl.innerText = "管理員 (沙盒模式)";
                 
                 if (!finalTargetId) {
-                    // 🚀 【重整核心防線 B】萬一徹底沒有 ID，主動引導重整，不讓畫面空白
-                    statusEl.innerText = "🔄 偵測到通訊時差，正在自動重置校驗...";
-                    setTimeout(() => { triggerForceRelogin(); }, 1000);
+                    statusEl.innerText = "🔄 通訊時差，正在自動重置校驗...";
+                    setTimeout(() => { triggerForceRelogin(); }, 1200);
                     return;
                 }
-                targetEl.innerText = finalTargetId + " (安全代理狀態)";
-                loadTestFirebaseData();
+            }
+
+            // 步驟 C：啟動核心渲染與即時監聽
+            renderIdentityUI();
+            injectRealtimeDataPipeline();
+        }
+
+        // 🎨 依模式渲染 UI 外觀
+        function renderIdentityUI() {
+            const badge = document.getElementById("mode-badge");
+            const stateCtrl = document.getElementById("state-machine-section");
+            const listTitle = document.getElementById("list-title");
+
+            if (isGroupMode) {
+                badge.innerText = "群組公帳";
+                badge.className = "text-[10px] px-2.5 py-1 rounded-lg font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-md animate-pulse";
+                stateCtrl.classList.remove("hidden");
+                listTitle.innerText = "📊 群組核銷對帳單";
+            } else {
+                badge.innerText = "個人帳本";
+                badge.className = "text-[10px] px-2.5 py-1 rounded-lg font-bold uppercase tracking-wider bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shadow-md";
+                stateCtrl.classList.add("hidden");
+                listTitle.innerText = "📋 個人花費流水帳";
             }
         }
 
-        async function loadTestFirebaseData() {
+        // 🔄 Firebase 實時資料串流管道（解決跨站時差）
+        function injectRealtimeDataPipeline() {
             const loadingTxt = document.getElementById("test-loading-text");
-            const listEl = document.getElementById("test-history-list");
+            if (unsubscribeList) unsubscribeList();
+            if (unsubscribeState) unsubscribeState();
+
+            const rootCollection = isGroupMode ? "groups" : "users";
             
-            // 🚀 【重整核心防線 C】設定超時地雷：如果 3 秒內沒載入出資料，判定為 WebView 死鎖，強制刷新
+            // A. 異步監聽流水帳/訂單明細
+            // 策略：若是群組，且在結算/訂單模式下，我們一樣能從對應集合拉取
+            const expRef = collection(db, rootCollection, finalTargetId, "expenses");
+            const q = query(expRef, orderBy("timestamp", "desc"), limit(40));
+
+            // 防線：超時重整安全鎖
             const timeoutGuard = setTimeout(() => {
-                if (loadingTxt && !loadingTxt.classList.contains("hidden")) {
-                    console.log("Firebase 讀取超時，強制清洗環境並重整...");
+                const loader = document.getElementById("loading-text");
+                if (loader && !loader.classList.contains("hidden")) {
                     triggerForceRelogin();
                 }
-            }, 3000);
+            }, 3500);
 
-            try {
-                const isGroup = finalTargetId.startsWith("C") || finalTargetId.startsWith("c") || (finalTargetId.length > 20 && !finalTargetId.startsWith("U"));
-                const rootCollection = isGroup ? "groups" : "users";
-                
-                const expRef = collection(db, rootCollection, finalTargetId, "expenses");
-                const q = query(expRef, orderBy("timestamp", "desc"), limit(10));
-                const snap = await getDocs(q);
-
-                clearTimeout(timeoutGuard); // 順利拿到資料，拆除超時重整地雷
-                loadingTxt.classList.add("hidden");
-                let html = "";
-
-                if (snap.empty) {
-                    listEl.innerHTML = `<div class="text-center py-4 text-white/20 text-xs font-mono">對接成功 ｜ 目前資料庫尚無紀錄。</div>`;
-                    return;
-                }
-
-                snap.forEach(doc => {
-                    const d = doc.data();
-                    html += `
-                        <div class="flex justify-between items-center pt-3 text-xs first:pt-0 font-mono">
-                            <span class="text-white/90 font-bold">${d.item || "日常支出"}</span>
-                            <span class="font-bold text-white/60">-$${d.amount || 0}</span>
-                        </div>`;
-                });
-                listEl.innerHTML = html;
-            } catch (e) {
+            unsubscribeList = onSnapshot(q, (snap) => {
                 clearTimeout(timeoutGuard);
-                console.error(e);
-                loadingTxt.innerText = "❌ 資料庫連線被阻斷，正在重新對接中...";
-                // 🚀 【重整核心防線 D】發生連線阻斷，兩秒後自動登出刷新
+                document.getElementById("loading-text").classList.add("hidden");
+                renderDataRows(snap);
+            }, (err) => {
+                clearTimeout(timeoutGuard);
+                console.error("Firebase 連線受阻: ", err);
                 setTimeout(() => { triggerForceRelogin(); }, 2000);
+            });
+
+            // B. 若為群組，額外異步監聽群組狀態機
+            if (isGroupMode) {
+                const groupDocRef = doc(db, "groups", finalTargetId);
+                unsubscribeState = onSnapshot(groupDocRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        currentGroupState = data.state || 'normal';
+                        refreshStateButtons();
+                    }
+                });
             }
         }
 
-        // 🎯 萬能重置重定向函數
-        window.triggerForceRelogin = function() {
-            try {
-                liff.logout(); // 強制踢掉過期快取
-            } catch(e){}
+        // 🖌️ 渲染明細列表與對帳核銷機制
+        function renderDataRows(snap) {
+            const listEl = document.getElementById("data-list");
+            const countEl = document.getElementById("item-count");
             
-            // 清乾淨網址列多餘參數，避免快取殭屍，重新乾淨載入
+            listEl.innerHTML = "";
+            countEl.innerText = `${snap.size} 筆紀錄`;
+
+            if (snap.empty) {
+                listEl.innerHTML = `<div class="text-center py-12 text-white/20 text-xs font-mono tracking-wide">雲端資料庫內尚無數據紀錄</div>`;
+                updateChartData({}, []);
+                return;
+            }
+
+            let categoryMap = {};
+            let totalExpense = 0;
+            let htmlStr = "";
+
+            snap.forEach((docSnap) => {
+                const d = docSnap.data();
+                const docId = docSnap.id;
+                const item = d.item || "未分類品項";
+                const amount = Number(d.amount) || 0;
+                const type = d.type || "expense";
+                const category = d.category || "其它";
+                const payer = d.created_by_name || "成員";
+
+                if (type === 'expense') {
+                    totalExpense += amount;
+                    categoryMap[category] = (categoryMap[category] || 0) + amount;
+                }
+
+                // 核心核銷與刪除按鈕
+                htmlStr += `
+                    <div class="flex justify-between items-center py-3 font-mono text-xs group transition-all duration-150 hover:bg-white/[0.02] px-2 rounded-xl">
+                        <div class="flex flex-col space-y-0.5">
+                            <span class="text-white/90 font-bold tracking-wide">${item}</span>
+                            <span class="text-[9px] text-white/30">Payer: ${payer} ｜ ${category}</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="font-black ${type === 'income' ? 'text-emerald-400' : 'text-rose-400/90'}">
+                                ${type === 'income' ? '+' : '-'} $${amount}
+                            </span>
+                            <button onclick="deleteRecord('${docId}')" class="text-[10px] text-rose-500/40 hover:text-rose-400 px-1 py-0.5 border border-transparent hover:border-rose-500/20 rounded opacity-80 hover:opacity-100 transition-all cursor-pointer">
+                                刪除
+                            </button>
+                        </div>
+                    </div>`;
+            });
+
+            listEl.innerHTML = htmlStr;
+            document.getElementById("total-expense-amount").innerText = `$${totalExpense.toLocaleString()}`;
+            
+            // 更新圓餅圖
+            updateChartData(categoryMap, Object.keys(categoryMap));
+        }
+
+        // 📊 Chart.js 圓餅圖動態渲染優化
+        function updateChartData(dataMap, labels) {
+            const ctx = document.getElementById('expenseChart').getContext('2d');
+            const emptyTxt = document.getElementById("empty-chart-text");
+
+            if (labels.length === 0) {
+                emptyTxt.classList.remove("hidden");
+                if (expenseChart) expenseChart.destroy();
+                return;
+            }
+            emptyTxt.classList.add("hidden");
+
+            const dataValues = labels.map(l => dataMap[l]);
+            const backgroundColors = [
+                'rgba(16, 185, 129, 0.65)', // emerald
+                'rgba(59, 130, 246, 0.65)', // blue
+                'rgba(245, 158, 11, 0.65)', // amber
+                'rgba(239, 68, 68, 0.65)',  // rose
+                'rgba(139, 92, 246, 0.65)', // purple
+                'rgba(107, 114, 128, 0.65)' // gray
+            ];
+            const borderColors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#6b7280'];
+
+            if (expenseChart) {
+                expenseChart.data.labels = labels;
+                expenseChart.data.datasets[0].data = dataValues;
+                expenseChart.update();
+            } else {
+                expenseChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: dataValues,
+                            backgroundColor: backgroundColors,
+                            borderColor: borderColors,
+                            borderWidth: 1.5,
+                            hoverOffset: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'right',
+                                labels: { color: 'rgba(255, 255, 255, 0.6)', font: { size: 10, family: 'monospace' }, boxWidth: 12 }
+                            }
+                        },
+                        cutout: '70%'
+                    }
+                });
+            }
+        }
+
+        // ⚙️ 狀態機遠端即時切換
+        window.updateGroupState = async function(newState) {
+            if (!isGroupMode || !finalTargetId) return;
+            try {
+                const groupDocRef = doc(db, "groups", finalTargetId);
+                await updateDoc(groupDocRef, { state: newState });
+            } catch(e) {
+                console.error("狀態機變更失敗:", e);
+            }
+        }
+
+        function refreshStateButtons() {
+            const states = ['normal', 'order', 'settle'];
+            states.forEach(s => {
+                const btn = document.getElementById(`btn-state-${s}`);
+                if (!btn) return;
+                if (currentGroupState === s) {
+                    btn.className = "py-2.5 text-xs font-bold rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 transition-all shadow-md shadow-emerald-950/20 scale-[1.02] cursor-pointer";
+                } else {
+                    btn.className = "py-2.5 text-xs font-bold rounded-xl border border-white/5 bg-white/5 text-white/40 hover:bg-white/[0.08] hover:text-white/70 transition-all cursor-pointer";
+                }
+            });
+        }
+
+        // 🗑️ 單筆紀錄核銷刪除
+        window.deleteRecord = async function(docId) {
+            if (!confirm("確定要核銷或刪除此筆對帳明細嗎？")) return;
+            const rootCollection = isGroupMode ? "groups" : "users";
+            try {
+                const docRef = doc(db, rootCollection, finalTargetId, "expenses", docId);
+                await deleteDoc(docRef);
+            } catch (err) {
+                alert("刪除失敗，請檢查權限或網域安全設定");
+            }
+        }
+
+        // 🎯 萬能全域清除快取重整防線
+        window.triggerForceRelogin = function() {
+            try { liff.logout(); } catch(e){}
             const cleanUrl = new URL(window.location.href);
             cleanUrl.searchParams.delete('groupId');
             cleanUrl.searchParams.delete('userId');
-            
             window.location.replace(cleanUrl.toString());
         }
     </script>
