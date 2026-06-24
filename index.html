@@ -171,75 +171,33 @@
         </div>
     </footer>
 
-<script>
-        const API_BASE = "https://0.0.0.0:8001"; // 記得修改這裡
+    <script>
+        // ========================================================
+        // 伺服器 API 基礎設定
+        // 請將下方網址替換為您的 Linux 伺服器 (例如 FastAPI/Flask) 網址
+        // ========================================================
+        const API_BASE_URL = "http://YOUR_LINUX_IP_OR_DOMAIN/api";
+
         const MY_LIFF_ID = "2010446205-W1G1WDQQ"; 
 
-        let homeChart = null, payerChart = null;
-        let globalUserId = null, globalProfile = { displayName: "雲端帳本主" };
-        let isGroupModeSelected = false, finalTargetId = null;
+        let homeChart = null;
+        let payerChart = null;
+        let globalUserId = null;
+        let globalProfile = { displayName: "雲端帳本主", pictureUrl: "" };
+        
+        let isGroupModeSelected = false;
+        let finalTargetId = null;
+        let currentGroupState = 'normal';
 
-        window.addEventListener('DOMContentLoaded', () => { setTimeout(initLIFF, 300); });
-
-        async function initLIFF() {
-            await liff.init({ liffId: MY_LIFF_ID });
-            if (!liff.isLoggedIn()) { liff.login(); return; }
-            globalProfile = await liff.getProfile();
-            globalUserId = globalProfile.userId;
-            document.getElementById("login-gateway").remove();
-            // 這裡連接你原本的 finalizeEntry 邏輯
-        }
-
-        // 🔄 核心 API 替換：SQLite 數據抓取
-        async function injectRealtimePipeline() {
-            try {
-                const res = await fetch(`${API_BASE}/api/data?user_id=${finalTargetId}`);
-                const result = await res.json();
-                const expenses = result.expenses;
-
-                let incomeTotal = 0, expenseTotal = 0, categoryData = {};
-                let listHtml = "";
-
-                expenses.forEach(d => {
-                    if (d.type === 'income') incomeTotal += d.amount;
-                    else { expenseTotal += d.amount; categoryData[d.category] = (categoryData[d.category] || 0) + d.amount; }
-                    listHtml += `<div class="flex justify-between items-center pt-4 font-mono text-sm"><span>${d.item}</span><span>$${d.amount.toLocaleString()}</span></div>`;
-                });
-
-                document.getElementById("home-net-balance").innerText = `$${(incomeTotal - expenseTotal).toLocaleString()}`;
-                document.getElementById("home-history-list").innerHTML = listHtml;
-                renderHomeChart(categoryData);
-            } catch (e) { console.error("API 獲取失敗:", e); }
-        }
-
-        // 🛠️ CRUD 替換 (對接 main.py 的路由)
-        window.deleteRecord = async function(id, item) {
-            if (!confirm(`確認刪除 ${item}?`)) return;
-            await fetch(`${API_BASE}/api/delete`, { method: 'POST', body: JSON.stringify({id}) });
-            queryManagedData();
-        }
-
-        window.editRecord = async function(id, item, amt) {
-            const newItem = prompt("名稱:", item);
-            const newAmt = prompt("金額:", amt);
-            await fetch(`${API_BASE}/api/update`, { method: 'POST', body: JSON.stringify({id, item: newItem, amount: newAmt}) });
-            queryManagedData();
-        }
-
-        // 保持你原本的所有渲染函式不動
-        function renderHomeChart(catData) {
-            const ctx = document.getElementById('homeExpenseChart').getContext('2d');
-            if (homeChart) homeChart.destroy();
-            homeChart = new Chart(ctx, { type: 'doughnut', data: { labels: Object.keys(catData), datasets: [{ data: Object.values(catData), backgroundColor: ['#FFFFFF', '#94A3B8', '#334155'] }] } });
-        }
+        // 輪詢定時器 (取代 Firebase onSnapshot)
+        let homePollingInterval = null;
 
         window.addEventListener('DOMContentLoaded', () => {
             setTimeout(initLIFFSafeFlow, 300);
         });
 
-        // 🚀 平行載入與時差防禦核心
+        // 🚀 核心初始化
         async function initLIFFSafeFlow() {
-            const gatewayBanner = document.getElementById("gateway-status");
             try {
                 await liff.init({ liffId: MY_LIFF_ID });
                 if (!liff.isLoggedIn()) { liff.login(); return; }
@@ -318,7 +276,6 @@
                 document.getElementById("history-title").innerText = "📑 本月群組即時明細";
                 document.getElementById("user-name").innerText = `${globalProfile.displayName || '群組成員'} (成員)`;
                 
-                // 群組模式：擴充導覽列為三標籤
                 navContainer.className = "max-w-md mx-auto grid grid-cols-3 h-16";
                 btnNavOrders.classList.remove("hidden");
                 document.getElementById("state-machine-section").classList.remove("hidden");
@@ -353,7 +310,7 @@
 
             document.getElementById("confirm-gateway").remove();
             
-            // 啟動實時資料監聽流
+            // 啟動資料流 (API 輪詢)
             injectRealtimePipeline();
         }
 
@@ -372,7 +329,7 @@
             document.getElementById(btns[pageTarget]).className = "flex flex-col items-center justify-center gap-1 transition text-white font-semibold";
 
             if (pageTarget === 'home') {
-                // 流水帳首頁已改為 Snapshot 即時流，不需手動拉取
+                fetchHomeData(); // 切回首頁時立刻更新一次
             } else if (pageTarget === 'manage') {
                 queryManagedData();
             } else if (pageTarget === 'orders') {
@@ -380,42 +337,71 @@
             }
         }
 
-        // 🔄 建立不卡死 WebView 的實時快取傳輸鏈
+        // 🔄 建立 API 短輪詢，模擬原本的即時資料流
         function injectRealtimePipeline() {
-            if (unsubscribeHome) unsubscribeHome();
-            if (unsubscribeState) unsubscribeState();
+            if (homePollingInterval) clearInterval(homePollingInterval);
+            
+            // 立即執行第一次
+            fetchHomeData();
+            if (isGroupModeSelected) fetchGroupState();
+            
+            // 每 5 秒更新一次 (可依需求調整頻率)
+            homePollingInterval = setInterval(() => {
+                const currentEl = document.getElementById('page-home');
+                if (!currentEl.classList.contains('hidden')) {
+                    fetchHomeData(true);
+                }
+                if (isGroupModeSelected) {
+                    fetchGroupState();
+                }
+            }, 5000);
+        }
 
+        async function fetchGroupState() {
+            try {
+                const res = await fetch(`${API_BASE_URL}/groups/${finalTargetId}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    currentGroupState = data.state || 'normal';
+                    refreshStateButtons();
+                }
+            } catch (e) { console.error("獲取群組狀態失敗:", e); }
+        }
+
+        async function fetchHomeData(isSilent = false) {
             const rootCollection = isGroupModeSelected ? "groups" : "users";
             const now = new Date(); 
-            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-            const expensesRef = collection(db, rootCollection, finalTargetId, "expenses");
-            const q = query(expensesRef, where("timestamp", ">=", startOfMonth), orderBy("timestamp", "desc"));
+            if (!isSilent) document.getElementById("home-loading-text").classList.remove("hidden");
 
-            document.getElementById("home-loading-text").classList.remove("hidden");
+            try {
+                const res = await fetch(`${API_BASE_URL}/${rootCollection}/${finalTargetId}/expenses?start=${startOfMonth}`);
+                if (!res.ok) throw new Error("Network response was not ok");
+                const records = await res.json();
 
-            // 實時更新主分頁流水帳
-            unsubscribeHome = onSnapshot(q, (snapshot) => {
                 document.getElementById("home-loading-text").classList.add("hidden");
                 let incomeTotal = 0, expenseTotal = 0;
                 let categoryData = {};
                 let listHtml = "";
 
-                if (snapshot.empty) {
+                if (!records || records.length === 0) {
                     document.getElementById("home-history-list").innerHTML = `<div class="text-center py-6 text-white/20 text-xs font-mono">本月帳本尚無消費明細。</div>`;
                     renderHomeChart({});
                     updateHomeTotals(0, 0, 0);
                     return;
                 }
 
-                snapshot.forEach((res) => {
-                    const data = res.data();
-                    const amt = data.amount || 0;
+                // 確保排序為最新的在上面
+                records.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+                records.forEach((data) => {
+                    const amt = Number(data.amount) || 0;
                     const type = data.type || "expense";
                     const item = data.item || "未命名";
                     const cat = data.category || "生活雜費";
                     const creatorName = data.created_by_name ? `by ${data.created_by_name}` : '';
-                    const dateObj = data.timestamp ? data.timestamp.toDate() : new Date();
+                    const dateObj = data.timestamp ? new Date(data.timestamp) : new Date();
                     const dateStr = `${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
 
                     const isIncome = type === "income";
@@ -441,18 +427,10 @@
                 updateHomeTotals(incomeTotal, expenseTotal, incomeTotal - expenseTotal);
                 document.getElementById("home-history-list").innerHTML = listHtml;
                 renderHomeChart(categoryData);
-            }, (err) => {
-                console.error("Firestore 監聽中斷，可能缺少索引: ", err);
-            });
 
-            // 如果是群組公帳，加開狀態機動態同步監聽
-            if (isGroupModeSelected) {
-                unsubscribeState = onSnapshot(doc(db, "groups", finalTargetId), (docSnap) => {
-                    if (docSnap.exists()) {
-                        currentGroupState = docSnap.data().state || 'normal';
-                        refreshStateButtons();
-                    }
-                });
+            } catch (err) {
+                console.error("API 請求失敗: ", err);
+                document.getElementById("home-loading-text").classList.add("hidden");
             }
         }
 
@@ -468,11 +446,17 @@
             }
         }
 
-        // ⚙️ 遠端同步切換狀態機
+        // ⚙️ 遠端同步切換狀態機 (API)
         window.updateGroupState = async function(newState) {
             if (!isGroupModeSelected || !finalTargetId) return;
             try {
-                await updateDoc(doc(db, "groups", finalTargetId), { state: newState });
+                await fetch(`${API_BASE_URL}/groups/${finalTargetId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ state: newState })
+                });
+                currentGroupState = newState;
+                refreshStateButtons();
             } catch (e) { console.error(e); }
         }
 
@@ -489,7 +473,7 @@
             });
         }
 
-        // 🛠️ 進階資料篩選檢索
+        // 🛠️ 進階資料篩選檢索 (API)
         window.queryManagedData = async function() {
             const startVal = document.getElementById("filter-start").value;
             const endVal = document.getElementById("filter-end").value;
@@ -502,18 +486,18 @@
             manageList.innerHTML = "";
 
             try {
-                const startDate = new Date(startVal + "T00:00:00");
-                const endDate = new Date(endVal + "T23:59:59");
-
+                const startDate = new Date(startVal + "T00:00:00").toISOString();
+                const endDate = new Date(endVal + "T23:59:59").toISOString();
                 const rootCollection = isGroupModeSelected ? "groups" : "users";
                 
                 // 📊 如果是群組模式，順便重繪墊付貢獻排行圖
                 if (isGroupModeSelected) {
                     document.getElementById("group-payer-card").classList.remove("hidden");
-                    const allSnapshot = await getDocs(collection(db, "groups", finalTargetId, "expenses"));
+                    const allExpRes = await fetch(`${API_BASE_URL}/groups/${finalTargetId}/expenses`);
+                    const allRecords = await allExpRes.json();
+                    
                     let payerMap = {}; let totalExp = 0;
-                    allSnapshot.forEach(d => {
-                        const data = d.data();
+                    allRecords.forEach(data => {
                         if (data.type !== "income") {
                             const p = data.created_by_name || "未知成員"; const a = Number(data.amount) || 0;
                             payerMap[p] = (payerMap[p] || 0) + a; totalExp += a;
@@ -529,28 +513,30 @@
                     document.getElementById("group-payer-card").classList.add("hidden");
                 }
 
-                // 拉取流水帳維護明細
-                const expensesRef = collection(db, rootCollection, finalTargetId, "expenses");
-                const q = query(expensesRef, where("timestamp", ">=", startDate), where("timestamp", "<=", endDate), orderBy("timestamp", "desc"));
-                const querySnapshot = await getDocs(q);
+                // 組合查詢參數
+                let url = `${API_BASE_URL}/${rootCollection}/${finalTargetId}/expenses?start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}`;
+                if (typeVal !== "all") url += `&type=${typeVal}`;
+
+                const queryRes = await fetch(url);
+                const queryRecords = await queryRes.json();
 
                 loadingTxt.classList.add("hidden");
                 let listHtml = "";
 
-                if (querySnapshot.empty) {
+                if (!queryRecords || queryRecords.length === 0) {
                     manageList.innerHTML = `<div class="text-center py-12 text-white/20 text-xs font-mono">該區間查無任何收支紀錄。</div>`;
                     return;
                 }
+                
+                queryRecords.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-                querySnapshot.forEach((res) => {
-                    const id = res.id; const data = res.data();
-                    const amt = data.amount || 0; const type = data.type || "expense";
+                queryRecords.forEach((data) => {
+                    const id = data.id;
+                    const amt = Number(data.amount) || 0; const type = data.type || "expense";
                     const item = data.item || "未命名"; const cat = data.category || "生活雜費";
                     const creatorName = data.created_by_name ? `[by ${data.created_by_name}]` : '';
-                    const dateObj = data.timestamp ? data.timestamp.toDate() : new Date();
+                    const dateObj = data.timestamp ? new Date(data.timestamp) : new Date();
                     const dateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
-
-                    if (typeVal !== "all" && type !== typeVal) return;
 
                     const isIncome = type === "income";
                     listHtml += `
@@ -575,32 +561,32 @@
                 manageList.innerHTML = listHtml ? listHtml : `<div class="text-center py-12 text-white/20 text-xs font-mono">無符合項目。</div>`;
             } catch (e) {
                 loadingTxt.classList.add("hidden");
-                manageList.innerHTML = `<div class="text-center py-6 text-rose-400/50 text-xs font-mono">讀取失敗，請確認已在 Firebase 建立複合索引。</div>`;
+                manageList.innerHTML = `<div class="text-center py-6 text-rose-400/50 text-xs font-mono">讀取失敗，請確認伺服器與 API 狀態。</div>`;
             }
         }
 
-        // 📋 PAGE 3: 智慧揪團核銷控制台 (群組公帳核心)
+        // 📋 PAGE 3: 智慧揪團核銷控制台 (API)
         async function loadOrdersDashboard() {
             document.getElementById("order-loading-text").classList.remove("hidden");
             try {
-                const ordersRef = collection(db, "groups", finalTargetId, "orders");
-                const q = query(ordersRef, orderBy("timestamp", "desc"));
-                const querySnapshot = await getDocs(q);
+                const ordersRes = await fetch(`${API_BASE_URL}/groups/${finalTargetId}/orders`);
+                const orders = await ordersRes.json();
                 
-                const settlesRef = collection(db, "groups", finalTargetId, "settlements");
-                const settleSnap = await getDocs(settlesRef);
-                let settlePool = [];
-                settleSnap.forEach(d => settlePool.push(d.data()));
+                const settlesRes = await fetch(`${API_BASE_URL}/groups/${finalTargetId}/settlements`);
+                const settlePool = await settlesRes.json();
 
                 let masterHtml = "";
-                querySnapshot.forEach((res) => {
-                    const orderId = res.id; const o = res.data();
+                
+                orders.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+
+                orders.forEach((o) => {
+                    const orderId = o.id;
                     const code = o.order_code; const payer = o.master_payer_name;
                     const date = o.order_date; const total = o.total_amount || 0;
                     const items = o.items || [];
 
-                    let expected = {}; items.forEach(i => expected[i.buyer] = (expected[i.buyer] || 0) + i.price);
-                    let actual = {}; settlePool.filter(s => s.order_code_ref === code).forEach(s => actual[s.payer_name] = (actual[s.payer_name] || 0) + s.amount);
+                    let expected = {}; items.forEach(i => expected[i.buyer] = (expected[i.buyer] || 0) + Number(i.price));
+                    let actual = {}; settlePool.filter(s => s.order_code_ref === code).forEach(s => actual[s.payer_name] = (actual[s.payer_name] || 0) + Number(s.amount));
 
                     let subRowsHtml = "";
                     Object.keys(expected).forEach(person => {
@@ -627,38 +613,40 @@
                             </div>`;
                     });
 
-                    // ✅ 修正後的精準程式碼：
-                        masterHtml += `
-                            <div class="bg-[#1C2541] border border-white/5 rounded-2xl p-4 space-y-3 shadow-lg">
-                                <div class="flex justify-between items-start border-b border-white/5 pb-2.5 font-mono">
-                                    <div>
-                                        <span class="text-xs bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full font-bold">#${code}</span>
-                                        <span class="text-xs text-white/40 ml-2">${date}</span>
-                                        <div class="text-xs font-bold mt-1 text-white/80">💳 墊款人：${o.master_payer_name || '群組成員'}</div>
-                                    </div>
-                                <div class="text-right">
-                                    <span class="text-sm font-black text-white">$${total.toLocaleString()}</span>
-                                    <button onclick="window.deleteOrderMaster('${orderId}', '${code}')" class="block text-[10px] text-rose-400/40 hover:text-rose-400 mt-1 ml-auto cursor-pointer">🗑️ 刪除整單</button>
+                    masterHtml += `
+                        <div class="bg-[#1C2541] border border-white/5 rounded-2xl p-4 space-y-3 shadow-lg">
+                            <div class="flex justify-between items-start border-b border-white/5 pb-2.5 font-mono">
+                                <div>
+                                    <span class="text-xs bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full font-bold">#${code}</span>
+                                    <span class="text-xs text-white/40 ml-2">${date}</span>
+                                    <div class="text-xs font-bold mt-1 text-white/80">💳 墊款人：${o.master_payer_name || '群組成員'}</div>
                                 </div>
+                            <div class="text-right">
+                                <span class="text-sm font-black text-white">$${total.toLocaleString()}</span>
+                                <button onclick="window.deleteOrderMaster('${orderId}', '${code}')" class="block text-[10px] text-rose-400/40 hover:text-rose-400 mt-1 ml-auto cursor-pointer">🗑️ 刪除整單</button>
                             </div>
-                            <div class="space-y-1.5">
-                                <div class="text-[10px] text-white/30 tracking-wider uppercase font-bold font-mono">🛒 點單品項調整：</div>
-                                ${rawItemsHtml}
-                            </div>
-                            <div class="bg-[#0A1128]/50 rounded-xl p-3 border border-white/5 text-xs space-y-1 font-mono">
-                                <div class="text-[10px] text-white/30 tracking-wider uppercase font-bold pb-1">📊 成員收欠款實時對帳：</div>
-                                ${subRowsHtml}
-                            </div>
-                        </div>`;
+                        </div>
+                        <div class="space-y-1.5">
+                            <div class="text-[10px] text-white/30 tracking-wider uppercase font-bold font-mono">🛒 點單品項調整：</div>
+                            ${rawItemsHtml}
+                        </div>
+                        <div class="bg-[#0A1128]/50 rounded-xl p-3 border border-white/5 text-xs space-y-1 font-mono">
+                            <div class="text-[10px] text-white/30 tracking-wider uppercase font-bold pb-1">📊 成員收欠款實時對帳：</div>
+                            ${subRowsHtml}
+                        </div>
+                    </div>`;
                 });
 
                 document.getElementById("order-loading-text").classList.add("hidden");
                 document.getElementById("order-master-list").innerHTML = masterHtml ? masterHtml : `<div class="text-center py-6 text-white/20 text-xs font-mono">本群組尚無任何揪團訂單。</div>`;
-            } catch (e) { console.error(e); document.getElementById("order-loading-text").classList.add("hidden"); }
+            } catch (e) { 
+                console.error(e); 
+                document.getElementById("order-loading-text").classList.add("hidden"); 
+            }
         }
 
         // ==========================================
-        // 🛠️ 傳統資料庫 CRUD 控制閥 (不使用任何 Python 註解)
+        // 🛠️ REST API CRUD 控制閥
         // ==========================================
         window.editRecord = async function(docId, currentItem, currentAmount) {
             const newItem = prompt("請輸入修正後的項目名稱:", currentItem); if (!newItem) return;
@@ -666,8 +654,13 @@
             const newAmount = parseInt(newAmountStr, 10); if (isNaN(newAmount) || newAmount <= 0) { alert("金額錯誤"); return; }
             try {
                 const rootCollection = isGroupModeSelected ? "groups" : "users";
-                await updateDoc(doc(db, rootCollection, finalTargetId, "expenses", docId), { item: newItem.trim(), amount: newAmount });
+                await fetch(`${API_BASE_URL}/${rootCollection}/${finalTargetId}/expenses/${docId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ item: newItem.trim(), amount: newAmount })
+                });
                 queryManagedData();
+                fetchHomeData(true);
             } catch (e) { alert("修改失敗"); }
         }
 
@@ -675,8 +668,11 @@
             if (confirm(`⚠️ 確定要徹底刪除「${itemTitle}」嗎？`)) {
                 try {
                     const rootCollection = isGroupModeSelected ? "groups" : "users";
-                    await deleteDoc(doc(db, rootCollection, finalTargetId, "expenses", docId));
+                    await fetch(`${API_BASE_URL}/${rootCollection}/${finalTargetId}/expenses/${docId}`, {
+                        method: 'DELETE'
+                    });
                     queryManagedData();
+                    fetchHomeData(true);
                 } catch (e) { alert("刪除失敗"); }
             }
         }
@@ -687,14 +683,18 @@
             const newPriceStr = prompt("請修改品項金額:", currentPrice); if (!newPriceStr) return;
             const newPrice = parseInt(newPriceStr, 10); if (isNaN(newPrice) || newPrice <= 0) return;
             try {
-                const docRef = doc(db, "groups", finalTargetId, "orders", orderId);
-                const qSnapshot = await getDocs(query(collection(db, "groups", finalTargetId, "orders")));
-                let currentItems = [];
-                qSnapshot.forEach(d => { if(d.id === orderId) currentItems = d.data().items; });
+                // 先取得當前完整訂單資料
+                const res = await fetch(`${API_BASE_URL}/groups/${finalTargetId}/orders/${orderId}`);
+                const orderData = await res.json();
                 
-                currentItems[index] = { buyer: newBuyer.trim(), item: newItem.trim(), price: newPrice };
-                const newTotal = currentItems.reduce((acc, i) => acc + i.price, 0);
-                await updateDoc(docRef, { items: currentItems, total_amount: newTotal });
+                orderData.items[index] = { buyer: newBuyer.trim(), item: newItem.trim(), price: newPrice };
+                const newTotal = orderData.items.reduce((acc, i) => acc + Number(i.price), 0);
+                
+                await fetch(`${API_BASE_URL}/groups/${finalTargetId}/orders/${orderId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items: orderData.items, total_amount: newTotal })
+                });
                 loadOrdersDashboard();
             } catch (e) { alert("微調失敗"); }
         }
@@ -702,14 +702,17 @@
         window.deleteOrderItem = async function(orderId, index) {
             if (confirm("⚠️ 確定要刪除這筆訂單內的某個品項嗎？")) {
                 try {
-                    const docRef = doc(db, "groups", finalTargetId, "orders", orderId);
-                    const qSnapshot = await getDocs(query(collection(db, "groups", finalTargetId, "orders")));
-                    let currentItems = [];
-                    qSnapshot.forEach(d => { if(d.id === orderId) currentItems = d.data().items; });
+                    const res = await fetch(`${API_BASE_URL}/groups/${finalTargetId}/orders/${orderId}`);
+                    const orderData = await res.json();
                     
-                    currentItems.splice(index, 1);
-                    const newTotal = currentItems.reduce((acc, i) => acc + i.price, 0);
-                    await updateDoc(docRef, { items: currentItems, total_amount: newTotal });
+                    orderData.items.splice(index, 1);
+                    const newTotal = orderData.items.reduce((acc, i) => acc + Number(i.price), 0);
+                    
+                    await fetch(`${API_BASE_URL}/groups/${finalTargetId}/orders/${orderId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ items: orderData.items, total_amount: newTotal })
+                    });
                     loadOrdersDashboard();
                 } catch (e) { alert("刪除失敗"); }
             }
@@ -718,7 +721,9 @@
         window.deleteOrderMaster = async function(orderId, code) {
             if (confirm(`⚠️ 確定要將這整整一筆 ＃${code} 揪團訂單徹底刪除嗎？`)) {
                 try {
-                    await deleteDoc(doc(db, "groups", finalTargetId, "orders", orderId));
+                    await fetch(`${API_BASE_URL}/groups/${finalTargetId}/orders/${orderId}`, {
+                        method: 'DELETE'
+                    });
                     loadOrdersDashboard();
                 } catch (e) { alert("刪除失敗"); }
             }
