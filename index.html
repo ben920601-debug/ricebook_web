@@ -192,26 +192,34 @@
         // 輪詢定時器 (取代 Firebase onSnapshot)
         let homePollingInterval = null;
 
-        window.addEventListener('DOMContentLoaded', () => {
-            setTimeout(initLIFFSafeFlow, 300);
-        });
+       window.addEventListener('DOMContentLoaded', () => { setTimeout(initLIFFSafeFlow, 300); });
 
-        // 🚀 核心初始化
-        async function initLIFFSafeFlow() {
-            try {
-                await liff.init({ liffId: MY_LIFF_ID });
-                if (!liff.isLoggedIn()) { liff.login(); return; }
-                
-                const context = liff.getContext();
-                if (context && context.userId) { globalUserId = context.userId; }
-
-                try {
-                    const profile = await liff.getProfile();
-                    if (profile) {
-                        globalProfile = profile;
-                        if (!globalUserId) globalUserId = profile.userId;
-                    }
-                } catch (pErr) { console.warn("Profile 異步時差阻斷，自動採用 Context 靜態快取"); }
+                async function initLIFFSafeFlow() {
+                    try {
+                        await liff.init({ liffId: MY_LIFF_ID });
+                        if (!liff.isLoggedIn()) { liff.login(); return; }
+                        const profile = await liff.getProfile();
+                        globalUserId = profile.userId;
+                        document.getElementById("login-gateway").remove();
+                        document.getElementById("confirm-gateway").classList.remove("hidden");
+                    } catch (e) { console.error("LIFF 初始化失敗"); }
+                }
+                    async function fetchHomeData(isSilent = false) {
+                    if (!finalTargetId) return;
+                    
+                    // 強制使用 main.py 定義好的標準路徑 /api/data
+                    const url = `${API_BASE_URL}/api/data?user_id=${finalTargetId}`;
+                    
+                    if (!isSilent) document.getElementById("home-loading-text").classList.remove("hidden");
+            
+                    try {
+                        const res = await fetch(url);
+                        if (!res.ok) throw new Error("API 錯誤");
+                        
+                        const result = await res.json();
+                        const records = result.expenses; // SQLite 資料陣列
+            
+                        document.getElementById("home-loading-text").classList.add("hidden");
 
                 document.getElementById("confirm-name").innerText = globalProfile.displayName || "雲端財務負責人";
                 document.getElementById("confirm-uid").innerText = `UID: ${globalUserId || 'WebView_Fallback'}`;
