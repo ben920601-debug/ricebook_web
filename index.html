@@ -410,13 +410,15 @@
                     const item = data.item || "未命名";
                     const cat = data.category || "生活雜費";
                     const creatorName = data.created_by_name ? `by ${data.created_by_name}` : '';
+                    
+                    // 💡 修正點：這裡處理 SQLite 的字串時間，不要用 .toDate()
                     const dateObj = data.timestamp ? new Date(data.timestamp) : new Date();
                     const dateStr = `${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
-
+                
                     const isIncome = type === "income";
                     if (isIncome) incomeTotal += amt;
                     else { expenseTotal += amt; categoryData[cat] = (categoryData[cat] || 0) + amt; }
-
+                
                     listHtml += `
                         <div class="flex justify-between items-center pt-4 text-sm first:pt-0 font-mono">
                             <div class="flex items-center gap-3">
