@@ -359,7 +359,8 @@
 
         async function fetchGroupState() {
             try {
-                const res = await fetch(`${API_BASE_URL}/groups/${finalTargetId}`);
+                const res = await // 新路徑 (對應到我們在 main.py 定義的接口)
+                fetch(`${API_BASE}/api/data?user_id=${userId}`);
                 if (res.ok) {
                     const data = await res.json();
                     currentGroupState = data.state || 'normal';
