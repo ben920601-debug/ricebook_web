@@ -273,7 +273,7 @@
             }
         }
 
-        window.finalizeEntry = function() {
+            window.finalizeEntry = function() {
             const inputGroupVal = document.getElementById("input-group-id").value.trim();
             const navContainer = document.getElementById("nav-container");
             const btnNavOrders = document.getElementById("btn-nav-orders");
@@ -289,14 +289,13 @@
                 document.getElementById("history-title").innerText = "📑 本月群組即時明細";
                 document.getElementById("user-name").innerText = `${globalProfile.displayName || '群組成員'} (成員)`;
                 
-                // 群組模式：擴充導覽列為三標籤
+                // 群組模式：顯示核銷按鈕並切換為三欄佈局
                 navContainer.className = "max-w-md mx-auto grid grid-cols-3 h-16";
                 btnNavOrders.classList.remove("hidden");
                 document.getElementById("state-machine-section").classList.remove("hidden");
                 
                 url.searchParams.set('groupId', finalTargetId);
                 url.searchParams.delete('userId');
-                window.history.replaceState({}, '', url.toString());
             } else {
                 finalTargetId = globalUserId;
                 document.getElementById("mode-badge").innerText = "👤 個人";
@@ -305,15 +304,16 @@
                 document.getElementById("history-title").innerText = "📑 當月即時明細";
                 document.getElementById("user-name").innerText = globalProfile.displayName || "個人帳本主";
                 
+                // 個人模式：強制隱藏核銷並切換為兩欄佈局
                 navContainer.className = "max-w-md mx-auto grid grid-cols-2 h-16";
                 btnNavOrders.classList.add("hidden");
                 document.getElementById("state-machine-section").classList.add("hidden");
                 
                 url.searchParams.delete('groupId');
                 url.searchParams.set('userId', finalTargetId);
-                window.history.replaceState({}, '', url.toString());
             }
 
+            window.history.replaceState({}, '', url.toString());
             if (globalProfile.pictureUrl) {
                 document.getElementById("user-avatar").style.backgroundImage = `url('${globalProfile.pictureUrl}')`;
             }
@@ -323,12 +323,15 @@
             document.getElementById("filter-end").value = now.toISOString().split('T')[0];
 
             document.getElementById("confirm-gateway").remove();
-            
-            // 啟動實時資料監聽流
             injectRealtimePipeline();
         }
 
         window.switchPage = function(pageTarget) {
+            // 個人模式下，若誤觸 orders，自動導回 home
+            if (!isGroupModeSelected && pageTarget === 'orders') {
+                pageTarget = 'home';
+            }
+
             const pages = { home: 'page-home', manage: 'page-manage', orders: 'page-orders' };
             const btns = { home: 'btn-nav-home', manage: 'btn-nav-manage', orders: 'btn-nav-orders' };
             
@@ -342,9 +345,7 @@
             document.getElementById(pages[pageTarget]).classList.remove("hidden");
             document.getElementById(btns[pageTarget]).className = "flex flex-col items-center justify-center gap-1 transition text-white font-semibold";
 
-            if (pageTarget === 'home') {
-                // 流水帳首頁已改為 Snapshot 即時流，不需手動拉取
-            } else if (pageTarget === 'manage') {
+            if (pageTarget === 'manage') {
                 queryManagedData();
             } else if (pageTarget === 'orders') {
                 loadOrdersDashboard();
